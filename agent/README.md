@@ -8,8 +8,10 @@ access are supplied by the runtime, not stored in this repository.
 ## Tool catalog
 
 `src/tool-catalog.mjs` lists the 15 app areas from the pinned frontend and
-registers implemented agent tools. Currently only `correlation_plot` is
-available. Other app areas are inventory entries, not callable tools. View the
+registers implemented agent adapters. Currently only `correlation_plot` is
+registered. Other app areas are inventory entries, not callable tools. The
+`registered` field means an adapter exists; it does not confirm the external
+service is configured or reachable. View the
 catalog without AWS credentials:
 
 ```sh

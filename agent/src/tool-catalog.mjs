@@ -57,7 +57,7 @@ export function createToolCatalog({ apps = WEBSITE_APPS, registrations = REGISTE
         description: item.spec.description,
         inputSchema: item.spec.inputSchema,
       }));
-      return { ...app, available: tools.length > 0, tools };
+      return { ...app, registered: tools.length > 0, tools };
     }).filter(app => !term || [app.id, app.title, app.section, ...app.tools.flatMap(tool => [tool.name, tool.description])]
       .some(value => value.toLowerCase().includes(term)));
   }

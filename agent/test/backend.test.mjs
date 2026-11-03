@@ -17,7 +17,7 @@ test('prompt endpoint validates input and passes it to the runner', async () => 
   const catalogResponse = await request(server, 'GET', '/v1/tools');
   assert.equal(catalogResponse.status, 200);
   assert.equal(catalogResponse.body.apps.length, 15);
-  assert.deepEqual(catalogResponse.body.apps.filter(app => app.available).map(app => app.id), ['Correlation']);
+  assert.deepEqual(catalogResponse.body.apps.filter(app => app.registered).map(app => app.id), ['Correlation']);
   const response = await request(server, 'POST', '/v1/prompts', {
     prompt: '  Plot age against expression  ', context: { cohortFilter: { in: { gender: ['female'] } } },
   });
@@ -33,7 +33,7 @@ test('prompt endpoint validates input and passes it to the runner', async () => 
 test('catalog lists all website areas but registers only implemented tools', () => {
   const apps = toolCatalog.list();
   assert.equal(apps.length, 15);
-  assert.deepEqual(apps.filter(app => app.available).map(app => app.id), ['Correlation']);
+  assert.deepEqual(apps.filter(app => app.registered).map(app => app.id), ['Correlation']);
   assert.deepEqual(toolCatalog.list({ query: 'correlation_plot' }).map(app => app.id), ['Correlation']);
   assert.deepEqual(toolCatalog.list({ query: 'UMAP' }).map(app => app.id), ['Umap']);
   const tools = toolCatalog.createTools({
