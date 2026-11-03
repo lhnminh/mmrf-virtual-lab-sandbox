@@ -127,6 +127,25 @@ resource "aws_iam_role_policy" "agent_runtime" {
   })
 }
 
+# identity runs on the nodes and signs with this role. The Runtime's id isn't
+# known here because deploy_runtime.py creates it.
+resource "aws_iam_role_policy" "nodes_invoke_agent_runtime" {
+  count = var.enable_agentcore ? 1 : 0
+  name  = "invoke-agent-runtime"
+  role  = aws_iam_role.nodes.id
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect = "Allow"
+      Action = "bedrock-agentcore:InvokeAgentRuntime"
+      Resource = [
+        "arn:aws:bedrock-agentcore:${var.region}:${var.sandbox_account_id}:runtime/${local.agent_runtime_name}-*",
+        "arn:aws:bedrock-agentcore:${var.region}:${var.sandbox_account_id}:runtime/${local.agent_runtime_name}-*/runtime-endpoint/*",
+      ]
+    }]
+  })
+}
+
 # deploy_runtime.py treats a null repository as "AgentCore is switched off".
 output "agent_runtime_name" {
   value = local.agent_runtime_name
