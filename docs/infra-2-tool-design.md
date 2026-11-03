@@ -21,9 +21,9 @@ NRAS 113, DIS3 100; the KRAS DE groups contain 520 tested negatives and
 comparison live test also passed. The actual AWS Gateway and Chat flow remain
 deployment checks.
 
-The current frontend fork contains the Chat result renderer and Save Cohort
-actions. It is not pinned in `sources.json` until its change is committed, as
-the repository instructions require confirmation before commits.
+The frontend fork's `infra-2-chat-tools` branch contains the Chat result
+renderer and Save Cohort actions. `sources.json` pins its pushed commit so the
+sandbox build can fetch those changes.
 
 ## Next tools, in order
 
