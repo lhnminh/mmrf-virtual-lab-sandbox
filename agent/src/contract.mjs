@@ -2,19 +2,26 @@ export function parsePromptRequest(value) {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
     throw new TypeError('Request must be a JSON object');
   }
-  const { prompt, context } = value;
+  const { prompt, context, history = [] } = value;
   if (typeof prompt !== 'string' || !prompt.trim() || prompt.length > 4000) {
     throw new TypeError('prompt must be a nonempty string of at most 4000 characters');
   }
   if (context !== undefined && (!context || typeof context !== 'object' || Array.isArray(context))) {
     throw new TypeError('context must be a JSON object');
   }
+  if (!Array.isArray(history) || history.length > 10 || history.some(turn =>
+    !turn || !['user', 'assistant'].includes(turn.role) ||
+    typeof turn.content !== 'string' || !turn.content.trim() || turn.content.length > 2000)) {
+    throw new TypeError('history must contain at most 10 user or assistant text turns');
+  }
   const cohortFilter = context?.cohortFilter;
   if (cohortFilter !== undefined && cohortFilter !== null &&
       (typeof cohortFilter !== 'object' || Array.isArray(cohortFilter))) {
     throw new TypeError('context.cohortFilter must be a JSON object or null');
   }
-  return { prompt: prompt.trim(), context: { cohortFilter: cohortFilter ?? null } };
+  return { prompt: prompt.trim(), history: history.map(turn => ({
+    role: turn.role, content: turn.content.trim(),
+  })), context: { cohortFilter: cohortFilter ?? null } };
 }
 
 export function parseCorrelationInput(value) {

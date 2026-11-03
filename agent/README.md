@@ -1,7 +1,8 @@
 # Correlation Plot agent backend
 
-This folder hosts a single Strands agent for prompt-driven use of the existing
-Correlation Plot. The UI and plot implementation can be developed separately.
+This folder hosts a Strands agent used by the sandbox Chat interface. The
+Correlation Plot adapter is available for later integration; the Compose chat
+service currently runs without analysis tools.
 The agent uses Amazon Bedrock through the Strands SDK; AWS credentials and model
 access are supplied by the runtime, not stored in this repository.
 
@@ -20,7 +21,7 @@ npm run tools
 npm run tools -- correlation
 ```
 
-The backend also exposes `GET /v1/tools` for the future UI. To add a tool,
+The backend also exposes `GET /v1/tools` for tool discovery. To add a tool,
 define its schema and adapter in a separate module, register it with its app ID
 in `REGISTERED_TOOLS`, and add a backend test. The agent receives registered
 tools from this catalog; no separate `search_tools` model call is needed yet.
@@ -92,6 +93,11 @@ curl -fsS http://127.0.0.1:8787/v1/prompts \
   -d '{"prompt":"Plot age at diagnosis against KRAS expression"}'
 ```
 
+The endpoint also accepts up to ten prior text turns in `history`, each with a
+`user` or `assistant` role and a `content` string. The sandbox Chat interface
+sends these turns so follow-up questions have context. Each request still
+creates a fresh agent; the server does not store conversations.
+
 The endpoint accepts an optional website cohort filter. Pass the converted
 `filter0` expression used by the existing Correlation Plot wrapper, rather
 than the frontend's raw cohort state:
@@ -105,9 +111,12 @@ than the frontend's raw cohort state:
 
 The response contains `message` and `toolCalls`. Each successful tool call
 includes the validated input, the tool's summary, and any plot payload. The
-frontend should proxy this endpoint through its own server route or configure
-an authenticated same-origin route before exposing it to users. No browser
-cross-origin access or public listener is enabled by default.
+local sandbox routes `/agent/v1/prompts` through the identity gateway to the
+private Compose agent service. The browser uses that same-origin route; the
+agent has no published port. Compose loads credentials from ignored
+`agent/.env` when present. Set `AGENT_CHAT_ONLY=1` to run conversational Chat
+without registering analysis tools. In this mode the assistant can explain
+research concepts but cannot inspect cohorts or compute results.
 
 ## Correlation tool contract
 

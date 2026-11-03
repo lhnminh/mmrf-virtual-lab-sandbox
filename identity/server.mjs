@@ -22,6 +22,7 @@ const targets = {
   guppy: process.env.GUPPY_ORIGIN || 'http://guppy:8080',
   analysis: process.env.ANALYSIS_ORIGIN || 'http://analysis:8000',
   proteinpaint: process.env.PROTEINPAINT_ORIGIN || 'http://proteinpaint:3000',
+  agent: process.env.AGENT_ORIGIN || 'http://agent:8787',
 };
 // This launcher can only route to its own service names or loopback. It cannot
 // point its disposable identity at a real commons through environment settings.
@@ -102,6 +103,10 @@ const server = http.createServer(async (req, res) => {
     let targetMethod = req.method;
     if (path.startsWith('/guppy/')) { target = targets.guppy; targetPath = req.url.slice('/guppy'.length); }
     if (path.startsWith('/analysis/')) target = targets.analysis;
+    if (path === '/agent/v1/prompts' && req.method === 'POST') {
+      target = targets.agent;
+      targetPath = '/v1/prompts';
+    }
     let ppBody;
     if (path.startsWith('/protein-paint/')) {
       // Older PP clients emit both Content-Type and content-type on long
@@ -148,6 +153,10 @@ const server = http.createServer(async (req, res) => {
       cookie: `access_token=${token}`, 'x-forwarded-host': configuredOrigin ? new URL(configuredOrigin).host : req.headers.host,
       'x-forwarded-proto': configuredOrigin ? 'https' : 'http' };
     delete headers['proxy-authorization'];
+    if (target === targets.agent) {
+      delete headers.authorization;
+      delete headers.cookie;
+    }
     if (ppBody) {
       headers['content-type'] = 'application/json';
       headers['content-length'] = String(ppBody.length);
