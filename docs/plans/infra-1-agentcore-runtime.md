@@ -43,8 +43,8 @@ Never add AI attribution and never commit .claude/.
 
 ### R1. Runtime contract, locally (stopping point: agent answers on Runtime's endpoints)
 
-- [ ] 1.1 Check the AgentCore Runtime docs for the invocation and health paths, port, ARM64 requirement, request and response format, session header and payload limits; verify the findings are recorded in the design note, decision 1.
-- [ ] 1.2 Add the invocation and health endpoints to `agent/src/http.mjs`; verify a test shows the invocation endpoint returns the same JSON as `/v1/prompts` for the journey 1 body.
+- [x] 1.1 Check the AgentCore Runtime docs for the invocation and health paths, port, ARM64 requirement, request and response format, session header and payload limits; verify the findings are recorded in the design note, decision 1.
+- [x] 1.2 Add the invocation and health endpoints to `agent/src/http.mjs`; verify a test shows the invocation endpoint returns the same JSON as `/v1/prompts` for the journey 1 body.
 
 ### R2. Runtime deployed (stopping point: AWS CLI invocation answers journey 1)
 
@@ -82,7 +82,39 @@ See [CLAUDE.md](../../CLAUDE.md) and `docs/agent-architecture.md`.
 ### Decisions
 
 **1. Same server, extra endpoints.**
-Add Runtime's invocation and health paths to `http.mjs`, calling the same `runPrompt`. The port comes from `AGENT_PORT` (Runtime expects a fixed port; set it in the image). **Verify first** against the current AgentCore Runtime docs: paths (expected `POST /invocations`, `GET /ping`), port (expected 8080), ARM64 requirement, request and response framing, session id header, and payload limits.
+Add Runtime's invocation and health paths to `http.mjs`, calling the same `runPrompt`. The port comes from `AGENT_PORT`. The verified contract is below.
+
+**Verified contract (task 1.1, AWS docs and AWS CLI 2.39.3, checked 2026-11-03).** Protocol `HTTP`, the default.
+
+| Item | Finding | Effect on us |
+| --- | --- | --- |
+| Invocation | `POST /invocations`, JSON in, JSON or SSE out. The body is ours; Runtime doesn't impose a shape. | Same JSON as `/v1/prompts`, so contract 3 holds. No streaming. |
+| Health | `GET /ping` returns 200, `application/json`, `{"status":"Healthy"}`. `HealthyBusy` is for background work. | Add `/ping`. Never send `time_of_last_update` on every ping: it stops idle sessions from ending. The doc's FastAPI sample returns lowercase `healthy`; use the contract's `Healthy`. |
+| Host and port | `0.0.0.0:8080` by default. Configurable with `protocolConfiguration.port` (8000-12000, 8443 reserved) in the API and CLI. | The image already sets `AGENT_HOST=0.0.0.0`. Set `AGENT_PORT=8080` in the Runtime's environment, so the image stays shared with the EKS fallback. |
+| Architecture | `linux/arm64`, image in ECR, 2 GB maximum. | As decision 2. |
+| Compute | Up to 2 vCPU and 8 GB per session. | No setting needed. |
+| Session id | `X-Amzn-Bedrock-AgentCore-Runtime-Session-Id` (`runtimeSessionId`), at least 33 characters. A UUID is 36. If left empty, Runtime generates one. | `identity` sets it in R3. Each session gets its own microVM, and a running session keeps the code it started with until it ends. |
+| Payload | 100 MB request or response. 15-minute synchronous timeout. | A 150 KB `plot` fits. The agent's own 64 KiB request limit is stricter and stays. |
+| Sessions | Idle timeout 15 minutes, maximum 8 hours, both adjustable through `lifecycleConfiguration`. | The agent is stateless (history is in the body), so short timeouts are safe. |
+| Environment | 4 KB total across all variables per agent. | Enough for decision 4. Recheck when R4 adds the Gateway URL. |
+| Errors | A 4xx or 5xx from the container reaches the caller as `424 RuntimeClientError`. | Our 400 and 502 won't pass through unchanged. `identity` must map them in R3. |
+| Auth | SigV4 by default. Caller needs `bedrock-agentcore:InvokeAgentRuntime`. | As decision 5. |
+| MMDSv2 | Since 2026-06-30 invocations fail with `ValidationException` unless the runtime has `metadataConfiguration.requireMMDSV2=true`. | Must be set; see below. |
+| Platform version | `V1` is the default and reaches `READY` in seconds. `V2` takes minutes and restores from a snapshot, which requires healthy within 120 seconds and affects when SDK clients load credentials. | Stay on `V1`. |
+| Execution role | Trust `bedrock-agentcore.amazonaws.com` with `aws:SourceAccount` and `aws:SourceArn` conditions. Permissions: ECR pull and token, logs under `/aws/bedrock-agentcore/runtimes/*`, X-Ray, `cloudwatch:PutMetricData` (namespace `bedrock-agentcore`), workload access tokens, Bedrock invoke. | Copy this policy into task 2.1, not just the three items in decision 3. |
+| Region | Runtime and Gateway are both available in `us-east-1`, the Terraform default. | No region change. |
+
+**Terraform (decision 3).** `aws_bedrockagentcore_agent_runtime` exists in the locked provider, 6.69.1, but neither its schema (checked on the provider's `main`) nor its docs have `metadataConfiguration`, a port or a path. A Terraform-created runtime therefore can't set the required MMDSv2 flag. It would also need the image to exist before `terraform apply`, and would put the team password in Terraform state, which `agent-architecture.md` rules out. **Proposal:** Terraform owns the ECR repository and the execution role; `deploy_runtime.py` owns the Runtime through the AWS CLI, matching how `aws_sandbox.py` already works. `deploy_runtime.py` runs `create-agent-runtime`, waits for `READY`, then runs `update-agent-runtime --metadata-configuration requireMMDSV2=true`.
+
+**Not verified; check in R2:**
+
+- Whether a new runtime enables MMDSv2 by default. `CreateAgentRuntime` has no `metadataConfiguration` in the API reference or CLI 2.39.3, only `UpdateAgentRuntime` does, hence the two steps above.
+- Whether `update-agent-runtime` keeps environment variables it isn't given. Send the full set on every update.
+- What `Content-Type` reaches the container when the caller omits it. `http.mjs` returns 415 without `application/json`, so every caller must set it.
+- How long a `V1` container has to start. The docs give only the `V2` limit.
+- Whether the role's Bedrock resources cover the `global.anthropic.claude-sonnet-4-6` inference profile. Task 2.3 will show this.
+
+Sources: [service contract](https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/runtime-service-contract.html), [HTTP contract](https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/runtime-http-protocol-contract.html), [port and path](https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/runtime-configure-invocation.html), [quotas](https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/bedrock-agentcore-limits.html), [sessions](https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/runtime-sessions.html), [platform versions](https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/runtime-how-it-works.html), [troubleshooting](https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/runtime-troubleshooting.html), [permissions](https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/runtime-permissions.html), [regions](https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/agentcore-regions.html), [InvokeAgentRuntime](https://docs.aws.amazon.com/bedrock-agentcore/latest/APIReference/API_InvokeAgentRuntime.html).
 
 **2. ARM64 image in its own repository.**
 `deploy_runtime.py` builds `docker/agent.Dockerfile` with `docker buildx build --platform linux/arm64` and pushes to an ECR repository defined in `agentcore-runtime.tf` (for example `<name>/agent-runtime`). The EKS fallback image from infra-3 stays amd64.
@@ -104,5 +136,9 @@ In `agentcore-runtime.tf`, gated by `enable_agentcore`: the ECR repository, the 
 
 ### Open Questions
 
-- Runtime region and AgentCore availability in the sandbox account.
+- Confirm the sandbox account has AgentCore access. `us-east-1` supports it; `list-agent-runtimes` works for account 819739653272, but that it is the sandbox account is not confirmed.
+- Session id strategy for R3. Chat sends no session id. A new id per request matches the isolation guidance but starts a microVM each time; a shared id stays warm but breaks the one-session-per-user guidance. Measure the cold start in 2.3, then decide.
+- Tasks 2.1 and 2.2 are written but not run. `terraform/agentcore-runtime.tf` passes `terraform validate` only with a temporary `enable_agentcore` variable, which F1 will provide; `terraform plan` and the deploy need the sandbox. `scripts/deploy_runtime.py` is tested against a fake `ctx`, so check that F1's `ctx` matches the fields in its docstring.
+- F1 needs to send the team login from the executors. `agent/src/executors/survival.mjs` doesn't read `SANDBOX_ACCESS_USERNAME` or `SANDBOX_ACCESS_PASSWORD` today, so task 2.3 fails until it does.
+- `aws_sandbox.py destroy` must call `deploy_runtime.destroy(ctx)` before Terraform's destroy. Terraform doesn't own the Runtime, so it would otherwise be left behind. This is outside infra-1's files; agree it with infra-3.
 - Owner (Dev 1).
