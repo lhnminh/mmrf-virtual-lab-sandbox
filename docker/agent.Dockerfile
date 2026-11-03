@@ -4,5 +4,5 @@ COPY agent/package*.json ./
 RUN npm ci --omit=dev
 COPY agent/src ./src
 USER node
-ENV AGENT_HOST=0.0.0.0 AGENT_PORT=8787 AGENT_CHAT_ONLY=1
+ENV AGENT_HOST=0.0.0.0 AGENT_PORT=8787
 CMD ["node", "src/server.mjs"]
