@@ -114,9 +114,11 @@ includes the validated input, the tool's summary, and any plot payload. The
 local sandbox routes `/agent/v1/prompts` through the identity gateway to the
 private Compose agent service. The browser uses that same-origin route; the
 agent has no published port. Compose loads credentials from ignored
-`agent/.env` when present. Set `AGENT_CHAT_ONLY=1` to run conversational Chat
-without registering analysis tools. In this mode the assistant can explain
-research concepts but cannot inspect cohorts or compute results.
+`agent/.env` when present, and registers analysis tools by default, reaching the
+platform through `VIRTUAL_LAB_ORIGIN`. Set `AGENT_CHAT_ONLY=1` to run
+conversational Chat without registering analysis tools. In this mode the
+assistant can explain research concepts but cannot inspect cohorts or compute
+results.
 
 ## Correlation tool contract
 
