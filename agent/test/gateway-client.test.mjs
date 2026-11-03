@@ -40,3 +40,22 @@ test('Gateway HTTP fetch signs each request', async () => {
   assert.match(seen[0].headers.authorization, /AWS4-HMAC-SHA256/);
   assert.match(seen[0].headers.authorization, /Credential=TESTKEY/);
 });
+
+test('Gateway client completes an MCP initialize and tool-call round trip', async () => {
+  const methods = [];
+  const client = createGatewayClient({
+    url: 'https://gateway.example/mcp',
+    fetchImpl: async (_url, init) => {
+      const request = JSON.parse(init.body);
+      methods.push(request.method);
+      if (request.method === 'notifications/initialized') return new Response(null, { status: 202 });
+      const result = request.method === 'initialize'
+        ? { protocolVersion: '2025-03-26', capabilities: { tools: {} }, serverInfo: { name: 'fake-gateway', version: '1' } }
+        : { content: [{ type: 'text', text: JSON.stringify({ summary: 'Done', plot: { type: 'test' } }) }] };
+      return Response.json({ jsonrpc: '2.0', id: request.id, result });
+    },
+  });
+  assert.deepEqual(await client('correlation_plot', { primaryVariable: 'survival', secondaryVariable: 'risk' }),
+    { summary: 'Done', plot: { type: 'test' } });
+  assert.deepEqual(methods, ['initialize', 'notifications/initialized', 'tools/call']);
+});
