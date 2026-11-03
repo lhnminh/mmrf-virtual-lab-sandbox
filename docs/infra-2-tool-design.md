@@ -12,7 +12,14 @@ proposed cohort becomes active.
 | --- | --- | --- | --- |
 | `correlation_plot` | `primaryVariable`, `secondaryVariable` | Existing survival executor calls ProteinPaint correlation/survival endpoint | Summary and existing survival chart; reject unsupported variables and groups with fewer than ten cases. |
 | `top_mutated_genes` | `race`, optional `limit` (1–10) | Guppy case IDs for race plus selected cohort; ProteinPaint `termdb/topMutatedGenes` with the same filter | Ranked gene counts and case ID cohort proposal; reject unsupported race, empty cohort, or missing gene counts. |
-| `differential_expression` | `gene`, optional `limit` (1–20) | Gen3 `genomic/gene_cases`; paged `cases/` for mutation-tested cases; ProteinPaint `termdb/DE` pre-analysis and analysis | Disjoint tested negative and mutation positive cohorts, ranked adjusted p-values, volcano PNG; reject fewer than ten cases per group, mismatched group counts, or no usable genes. |
+| `differential_expression` | `gene`, optional `limit` (1–20) | Gen3 `genomic/gene_cases`; paged `cases/` for mutation-tested case and sample IDs; ProteinPaint `termdb/DE` pre-analysis and analysis with `samplelst.groups[].values` | Disjoint tested negative and mutation positive cohorts, ranked adjusted p-values, volcano PNG; reject fewer than ten cases per group, mismatched group counts, or no usable genes. |
+
+Local live checks against the existing synthetic stack passed on 2026-11-03:
+the Black or African American cohort has 334 cases and top genes KRAS 148,
+NRAS 113, DIS3 100; the KRAS DE groups contain 520 tested negatives and
+480 positives, with ten ranked genes and a volcano image. The survival
+comparison live test also passed. The actual AWS Gateway and Chat flow remain
+deployment checks.
 
 The current frontend fork contains the Chat result renderer and Save Cohort
 actions. It is not pinned in `sources.json` until its change is committed, as

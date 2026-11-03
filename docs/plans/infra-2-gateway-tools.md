@@ -79,7 +79,7 @@ Tool inputs, outputs, UI actions, failures, and the future tool backlog are in [
 
 ### G5. More tools (after the journey 1 Gateway path works)
 
-The two new executors pass local tests. Their expected synthetic counts and frontend actions still need live checks against the sandbox and deployed Gateway.
+The two new executors pass local tests and live calls against the synthetic stack. Journey 2 returned 334 cases and KRAS 148, NRAS 113, DIS3 100. Journey 3 returned 520 tested negatives, 480 KRAS positives, ten ranked genes and a volcano PNG. Frontend actions and the deployed Gateway still need live checks.
 
 - [x] 5.1 Write specs for the journey 2 and 3 tools: model-facing inputs, hidden cohort context, exact API calls, `{summary, plot}` outputs, frontend actions and failure cases. Keep the specs in the shared registry format from F1.
 - [ ] 5.2 Implement the journey 2 tool logic for demographic cohort selection and top mutated genes. Verify the synthetic Black or African American cohort has 334 cases and the top three genes are KRAS 148, NRAS 113 and DIS3 100; confirm the frontend can save/select the cohort and render the result.
