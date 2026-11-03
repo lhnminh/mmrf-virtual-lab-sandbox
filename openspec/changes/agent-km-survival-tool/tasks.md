@@ -11,8 +11,9 @@
 
 - [x] 2.1 Default `createStrandsRunner`'s `execute` to the routing executor when `CORRELATION_TOOL_URL` is unset; verify a fake-agent test shows a CGS prompt's tool call returns a survival `plot`, and existing scaffold tests still pass.
 - [ ] 2.2 Add `POST /v1/correlation` to `http.mjs`, serving the routing executor with the scaffold's HTTP contract; verify a test shows `createHttpCorrelationExecutor` pointed at it returns the same result as the in-process call.
-- [x] 2.3 Extend the system prompt with survival guidance and the quote-only-summary rule; verify `npm run prompt -- "Compare survival for CGS high risk vs standard risk"` (real executor; `smoke:bedrock` always uses the mock tool) with the stack running completes a `correlation_plot` call with `plot.type === "survival"`.
-- [ ] 2.4 Update `agent/README.md`: survival support, catalog, `VIRTUAL_LAB_ORIGIN`, `/v1/correlation`, and the `plot` schema for the UI; verify the README's curl examples run as written.
+- [x] 2.3 Extend the system prompt with survival guidance, the quote-only-summary rule and the cohort mention, and narrow the mock rule to "Mock tool" summaries; verify `npm run prompt -- "Compare survival for CGS high risk vs standard risk"` (real executor; `smoke:bedrock` always uses the mock tool) with the stack running completes a `correlation_plot` call with `plot.type === "survival"`.
+- [ ] 2.4 Update `agent/README.md`: built-in survival support (no `CORRELATION_TOOL_URL` needed), the variable catalog, `VIRTUAL_LAB_ORIGIN`, `/v1/correlation`, and the `plot` schema for the UI; verify the README's curl examples run as written.
+- [ ] 2.5 Turn off the Strands console printer so `npm run prompt` prints only JSON; verify `npm run prompt -- "..." | python3 -m json.tool` succeeds.
 
 ## 3. Local stack
 
