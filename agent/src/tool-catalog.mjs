@@ -1,4 +1,4 @@
-import { CORRELATION_TOOL_SPEC, createCorrelationTool } from './correlation-tool.mjs';
+import { registeredTools } from './tools/index.mjs';
 
 // Snapshot of the pinned frontend's analysisTools.json. An app is a website
 // area, not an agent capability until at least one tool is registered below.
@@ -20,18 +20,13 @@ export const WEBSITE_APPS = Object.freeze([
   { id: 'SetOperations', title: 'Set Operations', section: 'Analysis Tools' },
 ]);
 
-const REGISTERED_TOOLS = [
-  {
-    appId: 'Correlation',
-    spec: CORRELATION_TOOL_SPEC,
-    create: ({ toolFactory, executors, context, calls }) => createCorrelationTool({
-      toolFactory,
-      execute: executors.correlation_plot,
-      context,
-      calls,
-    }),
-  },
-];
+const REGISTERED_TOOLS = registeredTools.map(item => ({
+  appId: item.appId,
+  spec: item.spec,
+  create: ({ toolFactory, executors, context, calls }) => item.createTool({
+    toolFactory, execute: executors[item.spec.name], context, calls,
+  }),
+}));
 
 export function createToolCatalog({ apps = WEBSITE_APPS, registrations = REGISTERED_TOOLS } = {}) {
   const appIds = new Set();
