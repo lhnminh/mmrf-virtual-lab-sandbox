@@ -4,6 +4,37 @@ Owner: Dev 1 (TBD) · Branch: `infra-1-agentcore-runtime` · Team context: [CLAU
 
 Tick the boxes as you go; this file is the chunk's status.
 
+## Where we left off (2026-11-03)
+
+Branch `task-1-agentcore-runtime`, not pushed. It can't merge before infra-3's F1, because `terraform/agentcore-runtime.tf` needs F1's `enable_agentcore` variable.
+
+**Working:**
+
+- The agent runs on AgentCore Runtime as `mmrf_smoke_agent` (id `mmrf_smoke_agent-mEvkp72vEB`) in the team account 548574235556, `us-west-2`. It is chat-only, with no tools. Test it with `AWS_REGION=us-west-2 python3 scripts/runtime_smoke.py invoke "What can you do?"`.
+- The real `identity` server, run locally, reaches that agent through `AGENTCORE_RUNTIME_ARN`.
+
+**Not done:**
+
+- The Virtual Lab isn't deployed in this account, so there is no data, Chat or `identity` on AWS yet.
+- `correlation_plot` hasn't run on Runtime.
+- The Helm changes, the network policy, the node role's invoke permission and pod access to the node role's credentials are untested. `helm template` and `terraform plan` haven't run.
+- `deploy_runtime.py` doesn't set `agentcore.runtimeArn` (task 3.3).
+
+**Next steps, in order:**
+
+1. Agree who deploys the Virtual Lab to 548574235556, `us-west-2`. No throw-away data stub: the decision was to deploy the real thing.
+2. To deploy: install `terraform` and `helm`, then run `aws_sandbox.py init`. It needs a named AWS profile, and expects an assumed operator role while the team key is the IAM user `hackathon-team-shared`, so it may need a small change. Set the region to `us-west-2`; `terraform/variables.tf` defaults to `us-east-1`. Review the Terraform plan before anything is created.
+3. Point the Runtime at the deployed sandbox: run `scripts/runtime_smoke.py up` with `AWS_REGION=us-west-2`, `VIRTUAL_LAB_ORIGIN`, `SANDBOX_ACCESS_USERNAME` and `SANDBOX_ACCESS_PASSWORD` set. Expect the journey 1 result of 339 and 661 cases (task 2.3).
+4. Rebase onto F1 when it merges. Then finish 2.1 and 2.2 through `aws_sandbox.py`, replace the stand-ins, and call `deploy_runtime.destroy(ctx)` from `aws_sandbox.py destroy` (agree this with infra-3).
+5. Finish R3 on EKS: tasks 3.1 and 3.3, ending with the survival chart in Chat on the AWS URL.
+6. R4 with infra-2, after its G3.
+
+**Resources to clean up later:**
+
+- `us-west-2`: `python3 scripts/runtime_smoke.py down` with `AWS_REGION=us-west-2` deletes the `mmrf-smoke` Runtime, ECR repository and role. Keep them until step 3 is done or the real Runtime replaces them.
+- CloudWatch log groups for the deleted and current runtimes stay behind; `down` doesn't remove them.
+- Account 819739653272, `us-east-1`: the first `mmrf-smoke` resources may remain. That account's credentials are no longer in use.
+
 ## Why
 
 The ORION brief requires the agent to run on Amazon Bedrock AgentCore. Today the
