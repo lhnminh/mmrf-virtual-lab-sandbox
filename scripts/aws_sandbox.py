@@ -21,6 +21,8 @@ import time
 import urllib.error
 import urllib.request
 from uuid import uuid4
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import deploy_tools
 
 ROOT = Path(__file__).resolve().parents[1]
 SERVICES = ("seed", "guppy", "analysis", "proteinpaint", "identity", "frontend")
@@ -101,6 +103,7 @@ class Operator:
             "operator_cidrs": [c["operator_cidr"]], "region": c["region"], "name": c["name"],
             "vpc_cidr": c["vpc_cidr"], "kubernetes_version": c["kubernetes_version"],
             "enable_https": True,
+            "enable_agentcore": c.get("enable_agentcore", False),
         })
         self.tf("init", "-backend=false", "-input=false")
         if self.tf("workspace", "show", capture=True).strip() != "default":
@@ -228,6 +231,8 @@ class Operator:
         self.preflight()
         if skip_build and not (self.directory / "build.json").exists():
             raise ValueError("Run build first before --skip-build")
+        if self.config.get("enable_agentcore"):
+            deploy_tools.prepare()
         self.init_terraform()
         self.tf("plan", "-input=false", "-out=sandbox.tfplan")
         confirm(self.config, yes, "CREATE/UPDATE the displayed sandbox resources")
@@ -239,6 +244,8 @@ class Operator:
                 build.result()
         outputs = self.outputs()
         self.install(outputs, self.publish(outputs))
+        if self.config.get("enable_agentcore"):
+            deploy_tools.deploy(self, outputs)
 
     def empty_repository(self, name):
         repository = self.config["name"] + "/" + name
@@ -378,6 +385,7 @@ def initialize(args):
     if (ROOT / "terraform/terraform.tfstate").exists():
         raise ValueError("Terraform state already exists without operator configuration; recover its original configuration first")
     config = {"profile": args.profile, "account_id": args.account_id, "region": args.region,
+              "enable_agentcore": args.enable_agentcore,
               "name": args.name, "vpc_cidr": args.vpc_cidr, "kubernetes_version": args.kubernetes_version}
     import re
     if not re.fullmatch(r"\d{12}", args.account_id) or not re.fullmatch(r"[a-z][a-z0-9-]{2,30}", args.name):
@@ -423,6 +431,7 @@ def main():
     init.add_argument("--kubernetes-version", default="1.35")
     init.add_argument("--role-arn")
     init.add_argument("--operator-cidr")
+    init.add_argument("--enable-agentcore", action="store_true")
     for command in ("check", "build", "deploy", "status", "destroy", "credentials"):
         p = sub.add_parser(command)
         if command in ("deploy", "destroy"):
