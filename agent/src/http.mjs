@@ -1,5 +1,6 @@
 import http from 'node:http';
 import { parsePromptRequest } from './contract.mjs';
+import { toolCatalog } from './tool-catalog.mjs';
 
 function sendJson(res, status, value) {
   res.writeHead(status, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' });
@@ -18,10 +19,11 @@ async function readBody(req) {
   catch { throw new TypeError('Request body must be valid JSON'); }
 }
 
-export function createAgentServer({ runPrompt }) {
+export function createAgentServer({ runPrompt, catalog = toolCatalog }) {
   return http.createServer(async (req, res) => {
     const path = new URL(req.url, 'http://localhost').pathname;
     if (req.method === 'GET' && path === '/health') return sendJson(res, 200, { status: 'OK' });
+    if (req.method === 'GET' && path === '/v1/tools') return sendJson(res, 200, { apps: catalog.list() });
     if (path !== '/v1/prompts') return sendJson(res, 404, { error: 'Not found' });
     if (req.method !== 'POST') return sendJson(res, 405, { error: 'Method not allowed' });
     if (!/^application\/json(?:;|$)/i.test(req.headers['content-type'] || '')) {

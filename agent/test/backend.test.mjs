@@ -4,6 +4,7 @@ import { Readable } from 'node:stream';
 import { createAgentServer } from '../src/http.mjs';
 import { createCorrelationTool, createHttpCorrelationExecutor, mockCorrelationExecutor } from '../src/correlation-tool.mjs';
 import { createStrandsRunner } from '../src/strands-runner.mjs';
+import { createToolCatalog, toolCatalog } from '../src/tool-catalog.mjs';
 
 test('prompt endpoint validates input and passes it to the runner', async () => {
   const received = [];
@@ -13,6 +14,10 @@ test('prompt endpoint validates input and passes it to the runner', async () => 
   } });
   const health = await request(server, 'GET', '/health');
   assert.deepEqual(health.body, { status: 'OK' });
+  const catalogResponse = await request(server, 'GET', '/v1/tools');
+  assert.equal(catalogResponse.status, 200);
+  assert.equal(catalogResponse.body.apps.length, 15);
+  assert.deepEqual(catalogResponse.body.apps.filter(app => app.available).map(app => app.id), ['Correlation']);
   const response = await request(server, 'POST', '/v1/prompts', {
     prompt: '  Plot age against expression  ', context: { cohortFilter: { in: { gender: ['female'] } } },
   });
@@ -23,6 +28,36 @@ test('prompt endpoint validates input and passes it to the runner', async () => 
     const bad = await request(server, 'POST', '/v1/prompts', invalid);
     assert.equal(bad.status, 400);
   }
+});
+
+test('catalog lists all website areas but registers only implemented tools', () => {
+  const apps = toolCatalog.list();
+  assert.equal(apps.length, 15);
+  assert.deepEqual(apps.filter(app => app.available).map(app => app.id), ['Correlation']);
+  assert.deepEqual(toolCatalog.list({ query: 'correlation_plot' }).map(app => app.id), ['Correlation']);
+  assert.deepEqual(toolCatalog.list({ query: 'UMAP' }).map(app => app.id), ['Umap']);
+  const tools = toolCatalog.createTools({
+    toolFactory: definition => definition,
+    executors: { correlation_plot: mockCorrelationExecutor },
+    context: { cohortFilter: null }, calls: [],
+  });
+  assert.deepEqual(tools.map(tool => tool.name), ['correlation_plot']);
+});
+
+test('catalog supports additional tools and rejects bad registrations', () => {
+  const apps = [{ id: 'Correlation', title: 'Correlation Plot', section: 'Analysis Tools' }];
+  const registrations = [
+    { appId: 'Correlation', spec: { name: 'first', description: 'First', inputSchema: {} },
+      create: ({ toolFactory }) => toolFactory({ name: 'first' }) },
+    { appId: 'Correlation', spec: { name: 'second', description: 'Second', inputSchema: {} },
+      create: ({ toolFactory }) => toolFactory({ name: 'second' }) },
+  ];
+  const catalog = createToolCatalog({ apps, registrations });
+  assert.deepEqual(catalog.createTools({ toolFactory: definition => definition, executors: {}, context: {}, calls: [] })
+    .map(tool => tool.name), ['first', 'second']);
+  assert.deepEqual(catalog.list()[0].tools.map(tool => tool.name), ['first', 'second']);
+  assert.throws(() => createToolCatalog({ apps, registrations: [...registrations, registrations[0]] }), /duplicate tool/);
+  assert.throws(() => createToolCatalog({ apps, registrations: [{ ...registrations[0], appId: 'Unknown' }] }), /unknown app/);
 });
 
 function request(server, method, url, body) {
