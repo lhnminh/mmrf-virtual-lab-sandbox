@@ -22,7 +22,7 @@ root `CLAUDE.md` for how it fits with infra-2 (tools on Gateway) and infra-3
 
 ## Files touched
 
-- `agent/src/http.mjs`, `agent/src/server.mjs`, an ARM64 image build (a Dockerfile or build flag for the existing `docker/agent.Dockerfile`).
+- `agent/src/http.mjs`, `agent/src/server.mjs`, `agent/src/team-login.mjs` (temporary), `scripts/runtime_smoke.py` (temporary), an ARM64 image build (a Dockerfile or build flag for the existing `docker/agent.Dockerfile`).
 - `terraform/agentcore-runtime.tf`, `scripts/deploy_runtime.py`.
 - `identity/server.mjs` and its image (it has no npm dependencies today; the Runtime call needs the AWS SDK or SigV4 signing).
 - Helm values for `identity` (`AGENTCORE_RUNTIME_ARN`).
@@ -110,9 +110,16 @@ Add Runtime's invocation and health paths to `http.mjs`, calling the same `runPr
 
 - Whether a new runtime enables MMDSv2 by default. `CreateAgentRuntime` has no `metadataConfiguration` in the API reference or CLI 2.39.3, only `UpdateAgentRuntime` does, hence the two steps above.
 - Whether `update-agent-runtime` keeps environment variables it isn't given. Send the full set on every update.
-- What `Content-Type` reaches the container when the caller omits it. `http.mjs` returns 415 without `application/json`, so every caller must set it.
 - How long a `V1` container has to start. The docs give only the `V2` limit.
-- Whether the role's Bedrock resources cover the `global.anthropic.claude-sonnet-4-6` inference profile. Task 2.3 will show this.
+
+**Verified live (2026-11-03, `scripts/runtime_smoke.py`, chat-only). First in account 819739653272, `us-east-1`; now running as `mmrf_smoke_agent` in the team account 548574235556, `us-west-2`:**
+
+- The ARM64 image, port 8080 through `AGENT_PORT`, the role and create-then-update all work. The runtime reports `requireMMDSV2: true` and `V1`.
+- In the team account, `global.anthropic.claude-sonnet-4-6` also needs `aws-marketplace:ViewSubscriptions` and `aws-marketplace:Subscribe` on the role, which the documented policy doesn't include. Without them calls failed with 502, and they passed about 5 minutes after adding them. Both are now in `terraform/agentcore-runtime.tf`.
+- First invocation of a new session took 7.4 s, a repeat in that session 1.9 s. Both include the model call.
+- Omitting `Content-Type` reaches the container as a 415, so every caller must set `application/json`.
+- A 400 from the agent comes back as `RuntimeClientError`, "Received error (400) from runtime". The agent's error body is lost, so `identity` can't show it to Chat.
+- Logs are in `/aws/bedrock-agentcore/runtimes/<runtime id>-DEFAULT`.
 
 Sources: [service contract](https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/runtime-service-contract.html), [HTTP contract](https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/runtime-http-protocol-contract.html), [port and path](https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/runtime-configure-invocation.html), [quotas](https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/bedrock-agentcore-limits.html), [sessions](https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/runtime-sessions.html), [platform versions](https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/runtime-how-it-works.html), [troubleshooting](https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/runtime-troubleshooting.html), [permissions](https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/runtime-permissions.html), [regions](https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/agentcore-regions.html), [InvokeAgentRuntime](https://docs.aws.amazon.com/bedrock-agentcore/latest/APIReference/API_InvokeAgentRuntime.html).
 
@@ -136,9 +143,10 @@ In `agentcore-runtime.tf`, gated by `enable_agentcore`: the ECR repository, the 
 
 ### Open Questions
 
-- Confirm the sandbox account has AgentCore access. `us-east-1` supports it; `list-agent-runtimes` works for account 819739653272, but that it is the sandbox account is not confirmed.
+- The team uses account 548574235556 in `us-west-2`, but `terraform/variables.tf` defaults `region` to `us-east-1`. The real deploy must set `us-west-2`.
 - Session id strategy for R3. Chat sends no session id. A new id per request matches the isolation guidance but starts a microVM each time; a shared id stays warm but breaks the one-session-per-user guidance. Measure the cold start in 2.3, then decide.
-- Tasks 2.1 and 2.2 are written but not run. `terraform/agentcore-runtime.tf` passes `terraform validate` only with a temporary `enable_agentcore` variable, which F1 will provide; `terraform plan` and the deploy need the sandbox. `scripts/deploy_runtime.py` is tested against a fake `ctx`, so check that F1's `ctx` matches the fields in its docstring.
-- F1 needs to send the team login from the executors. `agent/src/executors/survival.mjs` doesn't read `SANDBOX_ACCESS_USERNAME` or `SANDBOX_ACCESS_PASSWORD` today, so task 2.3 fails until it does.
+- Tasks 2.1 and 2.2 stay unticked until they run through `aws_sandbox.py`. `terraform/agentcore-runtime.tf` passes `terraform validate` only with a temporary `enable_agentcore` variable, which F1 will provide, and `terraform plan` hasn't run. `scripts/deploy_runtime.py` has run live through `scripts/runtime_smoke.py`, so check that F1's `ctx` matches the fields in its docstring.
+- Stand-ins for F1, to remove when it lands: `agent/src/team-login.mjs` (the team login; tested offline only) and `scripts/runtime_smoke.py` (repository, role and `ctx`; keep its role policy in step with Terraform).
+- Task 2.3 needs a deployed sandbox: the live run was chat-only, so `correlation_plot` hasn't run on Runtime.
 - `aws_sandbox.py destroy` must call `deploy_runtime.destroy(ctx)` before Terraform's destroy. Terraform doesn't own the Runtime, so it would otherwise be left behind. This is outside infra-1's files; agree it with infra-3.
 - Owner (Dev 1).

@@ -116,6 +116,13 @@ resource "aws_iam_role_policy" "agent_runtime" {
           "arn:aws:bedrock:${var.region}:${var.sandbox_account_id}:*",
         ]
       },
+      {
+        # Bedrock subscribes the account to a model on first use.
+        Sid      = "BedrockModelSubscription"
+        Effect   = "Allow"
+        Action   = ["aws-marketplace:ViewSubscriptions", "aws-marketplace:Subscribe"]
+        Resource = "*"
+      },
     ]
   })
 }

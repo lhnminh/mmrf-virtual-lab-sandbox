@@ -3,8 +3,10 @@
 aws_sandbox.py calls deploy(ctx) after install(). `ctx` provides:
 
 - outputs: Terraform outputs as plain values
-- profile, region
-- access: the contents of generated/aws/access.json (origin, username, password)
+- profile (None uses the default AWS credentials), region
+- access: the contents of generated/aws/access.json (origin, username, password),
+  or None to deploy without the Virtual Lab data
+- extra_env (optional): more Runtime environment variables
 - run(args, capture=False, data=None, quiet=False): the launcher's command helper
 - directory: Path of generated/aws
 
@@ -28,8 +30,12 @@ POLL_SECONDS = 5
 POLL_LIMIT = 120
 
 
+def profile_args(ctx):
+    return ["--profile", ctx.profile] if ctx.profile else []
+
+
 def aws(ctx, service, *args):
-    output = ctx.run(["aws", service, *args, "--profile", ctx.profile, "--region", ctx.region,
+    output = ctx.run(["aws", service, *args, *profile_args(ctx), "--region", ctx.region,
                       "--output", "json"], capture=True)
     return json.loads(output) if output.strip() else {}
 
@@ -50,7 +56,7 @@ def control_with_input(ctx, operation, request):
 
 def build_and_push(ctx, repository):
     registry = repository.split("/")[0]
-    token = ctx.run(["aws", "ecr", "get-login-password", "--profile", ctx.profile,
+    token = ctx.run(["aws", "ecr", "get-login-password", *profile_args(ctx),
                      "--region", ctx.region], capture=True, quiet=True)
     ctx.run(["docker", "login", "--username", "AWS", "--password-stdin", registry], data=token)
     # The repository's tags are immutable, so every deploy needs a new one.
@@ -59,6 +65,20 @@ def build_and_push(ctx, repository):
     ctx.run(["docker", "buildx", "build", "--platform", "linux/arm64", "--provenance=false",
              "--sbom=false", "-f", "docker/agent.Dockerfile", "-t", image, "--push", str(ROOT)])
     return image
+
+
+def runtime_environment(ctx):
+    environment = {
+        "AGENT_PORT": SERVING_PORT,
+        "AWS_REGION": ctx.region,
+        "BEDROCK_MODEL_ID": os.environ.get("BEDROCK_MODEL_ID", DEFAULT_MODEL_ID),
+    }
+    if ctx.access:
+        environment.update(VIRTUAL_LAB_ORIGIN=ctx.access["origin"],
+                           SANDBOX_ACCESS_USERNAME=ctx.access["username"],
+                           SANDBOX_ACCESS_PASSWORD=ctx.access["password"])
+    environment.update(getattr(ctx, "extra_env", {}))
+    return environment
 
 
 def runtime_settings(ctx, image, role_arn):
@@ -70,14 +90,7 @@ def runtime_settings(ctx, image, role_arn):
         "lifecycleConfiguration": LIFECYCLE,
         # Sent in full on every update: whether an update keeps variables it
         # isn't given is not documented.
-        "environmentVariables": {
-            "AGENT_PORT": SERVING_PORT,
-            "AWS_REGION": ctx.region,
-            "BEDROCK_MODEL_ID": os.environ.get("BEDROCK_MODEL_ID", DEFAULT_MODEL_ID),
-            "VIRTUAL_LAB_ORIGIN": ctx.access["origin"],
-            "SANDBOX_ACCESS_USERNAME": ctx.access["username"],
-            "SANDBOX_ACCESS_PASSWORD": ctx.access["password"],
-        },
+        "environmentVariables": runtime_environment(ctx),
     }
 
 
