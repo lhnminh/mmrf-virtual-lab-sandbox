@@ -51,6 +51,7 @@ not clinical estimates. See [data generation and sources](docs/synthetic-data.md
 
 - [Local development and fixture generation](docs/local-development.md)
 - [API examples](docs/developer-api.md)
+- [Correlation Plot agent backend](agent/README.md)
 - [Validation](docs/verification.md)
 - [Local Kubernetes](docs/local-kubernetes.md)
 - [Components and licenses](docs/component-inventory.md)

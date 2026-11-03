@@ -1,6 +1,8 @@
 generated/
 .sources/
 .env
+agent/.env*
+!agent/.env.example
 *.tfstate*
 *.tfplan
 .terraform/
