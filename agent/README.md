@@ -5,6 +5,26 @@ Correlation Plot. The UI and plot implementation can be developed separately.
 The agent uses Amazon Bedrock through the Strands SDK; AWS credentials and model
 access are supplied by the runtime, not stored in this repository.
 
+## Tool catalog
+
+`src/tool-catalog.mjs` lists the 15 app areas from the pinned frontend and
+registers implemented agent adapters. Currently only `correlation_plot` is
+registered. Other app areas are inventory entries, not callable tools. The
+`registered` field means an adapter exists; it does not confirm the external
+service is configured or reachable. View the
+catalog without AWS credentials:
+
+```sh
+cd agent
+npm run tools
+npm run tools -- correlation
+```
+
+The backend also exposes `GET /v1/tools` for the future UI. To add a tool,
+define its schema and adapter in a separate module, register it with its app ID
+in `REGISTERED_TOOLS`, and add a backend test. The agent receives registered
+tools from this catalog; no separate `search_tools` model call is needed yet.
+
 ## Install and run
 
 Requires Node.js 22 or newer, Bedrock model invocation access, and access to

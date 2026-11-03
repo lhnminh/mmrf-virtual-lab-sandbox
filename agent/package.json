@@ -8,6 +8,7 @@
     "start": "node --env-file-if-exists=.env src/server.mjs",
     "prompt": "node --env-file-if-exists=.env src/cli.mjs",
     "smoke:bedrock": "node --env-file-if-exists=.env src/cli.mjs --mock-tool --require-tool",
+    "tools": "node src/catalog-cli.mjs",
     "test": "node --test test/*.test.mjs"
   },
   "dependencies": {

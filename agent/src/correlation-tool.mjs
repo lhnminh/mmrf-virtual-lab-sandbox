@@ -1,5 +1,19 @@
 import { parseCorrelationInput, parseCorrelationResult } from './contract.mjs';
 
+export const CORRELATION_TOOL_SPEC = Object.freeze({
+  name: 'correlation_plot',
+  description: 'Run the existing Correlation Plot for two clinical or genomic variables. Ask the user to clarify missing or ambiguous variables before calling.',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      primaryVariable: { type: 'string', description: 'First variable as named by the user' },
+      secondaryVariable: { type: 'string', description: 'Second variable as named by the user' },
+    },
+    required: ['primaryVariable', 'secondaryVariable'],
+    additionalProperties: false,
+  },
+});
+
 export function createHttpCorrelationExecutor({ url = process.env.CORRELATION_TOOL_URL, fetchImpl = fetch } = {}) {
   if (!url) {
     return async () => { throw new Error('CORRELATION_TOOL_URL is not configured'); };
@@ -32,17 +46,7 @@ export async function mockCorrelationExecutor(input) {
 
 export function createCorrelationTool({ toolFactory, execute, context, calls }) {
   return toolFactory({
-    name: 'correlation_plot',
-    description: 'Run the existing Correlation Plot for two clinical or genomic variables. Ask the user to clarify missing or ambiguous variables before calling.',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        primaryVariable: { type: 'string', description: 'First variable as named by the user' },
-        secondaryVariable: { type: 'string', description: 'Second variable as named by the user' },
-      },
-      required: ['primaryVariable', 'secondaryVariable'],
-      additionalProperties: false,
-    },
+    ...CORRELATION_TOOL_SPEC,
     callback: async (rawInput) => {
       const input = parseCorrelationInput(rawInput);
       const call = { name: 'correlation_plot', input, status: 'started' };

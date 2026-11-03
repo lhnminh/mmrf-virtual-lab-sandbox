@@ -1,5 +1,6 @@
-import { createCorrelationTool, createHttpCorrelationExecutor } from './correlation-tool.mjs';
+import { createHttpCorrelationExecutor } from './correlation-tool.mjs';
 import { parsePromptRequest } from './contract.mjs';
+import { toolCatalog } from './tool-catalog.mjs';
 
 const SYSTEM_PROMPT = `You help users operate the MMRF Virtual Lab Correlation Plot on synthetic demonstration data.
 For a plot request, identify the primary and secondary variables and call correlation_plot.
@@ -8,6 +9,7 @@ The cohort filter is supplied by the website; never invent, modify, or describe 
 Use only tool results to describe computed findings. Do not make clinical claims.
 If a tool says it is a mock or that no correlation was computed, say no real plot was generated.
 The mock tool is a stand-in for development; do not infer that the dataset or real plot tool cannot compute correlations.
+All data in this sandbox are synthetic. A future real tool can compute on that synthetic data; do not suggest real patient data is required.
 If the plot tool fails, explain the failure plainly.`;
 
 function messageText(message) {
@@ -18,6 +20,7 @@ function messageText(message) {
 }
 
 export function createStrandsRunner({ execute = createHttpCorrelationExecutor(),
+  catalog = toolCatalog,
   loadSdk = () => import('@strands-agents/sdk'),
   loadBedrock = () => import('@strands-agents/sdk/models/bedrock'),
   modelId = process.env.BEDROCK_MODEL_ID || 'global.anthropic.claude-sonnet-4-6' } = {}) {
@@ -29,7 +32,12 @@ export function createStrandsRunner({ execute = createHttpCorrelationExecutor(),
     const agent = new Agent({
       model: new BedrockModel({ modelId, maxTokens: 1024 }),
       systemPrompt: SYSTEM_PROMPT,
-      tools: [createCorrelationTool({ toolFactory: tool, execute, context, calls: toolCalls })],
+      tools: catalog.createTools({
+        toolFactory: tool,
+        executors: { correlation_plot: execute },
+        context,
+        calls: toolCalls,
+      }),
     });
     const result = await agent.invoke(prompt);
     return {
