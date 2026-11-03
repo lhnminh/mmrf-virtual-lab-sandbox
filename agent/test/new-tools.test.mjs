@@ -34,7 +34,7 @@ test('differential expression uses tested negatives and ranks adjusted p-values'
   const { fetchImpl, calls } = fakeApi((path, body) => {
     if (path.endsWith('/gene_cases')) return [...positive, 'NOT_TESTED'];
     if (path.endsWith('/cases/')) return {
-      data: [...positive, ...negative].map(case_id => ({ case_id })),
+      data: [...positive, ...negative].map((case_id, index) => ({ case_id, sample_id: 'S' + index })),
       pagination: { total: 24 },
     };
     if (body.preAnalysis) return { data: { 'KRAS no mutation detected': 12, 'KRAS mutated': 12 } };
@@ -49,4 +49,5 @@ test('differential expression uses tested negatives and ranks adjusted p-values'
   assert.equal(result.plot.groups[0].caseIds.includes('NOT_TESTED'), false);
   assert.equal(calls.filter(item => item.path.endsWith('/DE')).length, 2);
   assert.equal(calls.at(-1).body.filter0, null);
+  assert.deepEqual(calls.at(-1).body.samplelst.groups[1].values[0], { sampleId: 'S0' });
 });

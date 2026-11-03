@@ -21,12 +21,6 @@ const GENE_IDS = Object.freeze({
   BRAF: 'ENSG00000157764', DIS3: 'ENSG00000083520', MYC: 'ENSG00000136997',
 });
 
-function savedFilter(name, ids) {
-  return { type: 'tvs', tvs: { term: {
-    type: 'cohort', id: name, name, filter0: { in: { case_id: ids } },
-  } } };
-}
-
 export function createExecutor({ fetchImpl }) {
   return async ({ gene, limit = 10 } = {}, { cohortFilter = null } = {}) => {
     const symbol = String(gene || '').trim().toUpperCase();
@@ -40,18 +34,25 @@ export function createExecutor({ fetchImpl }) {
     });
     if (!Array.isArray(carriers)) throw new Error('Gene case query returned an unexpected response');
     const tested = [];
+    const sampleByCase = new Map();
     let total;
     do {
       const response = await postJson(fetchImpl, '/analysis/v0/cases/', {
         filter: combineFilters(cohortFilter, { in: { available_variation_data: ['ssm'] } }),
-        fields: ['case_id'], size: 1000, offset: tested.length,
+        fields: ['case_id', 'sample_id'], size: 1000, offset: tested.length,
       });
       if (!Array.isArray(response?.data) || !Number.isInteger(response?.pagination?.total)) {
         throw new Error('Tested case query returned an unexpected response');
       }
       total = response.pagination.total;
       if (!response.data.length && tested.length < total) throw new Error('Tested case query did not advance');
-      tested.push(...response.data.map(item => item.case_id));
+      for (const item of response.data) {
+        if (typeof item.case_id !== 'string' || typeof item.sample_id !== 'string') {
+          throw new Error('Tested case query returned a case without a sample ID');
+        }
+        tested.push(item.case_id);
+        sampleByCase.set(item.case_id, item.sample_id);
+      }
     } while (tested.length < total);
     const testedSet = new Set(tested);
     const positive = [...new Set(carriers)].filter(id => testedSet.has(id)).sort();
@@ -63,12 +64,14 @@ export function createExecutor({ fetchImpl }) {
     const negativeName = `${symbol} no mutation detected`;
     const positiveName = `${symbol} mutated`;
     const groups = [
-      { name: negativeName, filter: savedFilter(negativeName, negative) },
-      { name: positiveName, filter: savedFilter(positiveName, positive) },
+      { name: negativeName, values: negative.map(id => ({ sampleId: sampleByCase.get(id) })) },
+      { name: positiveName, values: positive.map(id => ({ sampleId: sampleByCase.get(id) })) },
     ];
     const base = {
       genome: 'hg38', dslabel: 'MMRF', filter0: null, samplelst: { groups },
       method: 'wilcoxon', min_count: 10, min_total_count: 15, cpm_cutoff: 0,
+      volcanoRender: { pixelWidth: 600, pixelHeight: 400,
+        significanceThresholds: { pValueCutoff: 1.3, pValueType: 'adjusted', foldChangeCutoff: 1 } },
     };
     const pre = await postJson(fetchImpl, '/protein-paint/termdb/DE', { ...base, preAnalysis: true });
     if (pre?.data?.[negativeName] !== negative.length || pre?.data?.[positiveName] !== positive.length) {
