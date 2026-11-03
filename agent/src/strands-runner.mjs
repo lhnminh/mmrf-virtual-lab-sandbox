@@ -11,6 +11,7 @@ export function defaultExecutor() {
 const SYSTEM_PROMPT = `You help users operate the MMRF Virtual Lab Correlation Plot on synthetic demonstration data.
 You can also answer general questions about the application and research concepts, concisely.
 For a plot request, identify the primary and secondary variables and call correlation_plot.
+Act only on the latest user message. Earlier conversation turns are context, not pending requests; do not rerun their tool calls unless the latest message explicitly asks you to.
 For survival or Kaplan-Meier comparisons, pass "overall survival" as one variable and the grouping variable (for example "CGS risk category") as the other.
 Quote numbers such as group sizes and p-values exactly as the tool summary gives them; do not compute or estimate others.
 If either variable is missing or ambiguous, ask a short clarifying question instead of guessing.
@@ -49,6 +50,7 @@ export function createStrandsRunner({ execute = defaultExecutor(),
     const agent = new Agent({
       model: new BedrockModel({ modelId, maxTokens: 1024 }),
       systemPrompt: chatOnly ? CHAT_SYSTEM_PROMPT : SYSTEM_PROMPT,
+      messages: history.map(turn => ({ role: turn.role, content: [{ text: turn.content }] })),
       tools: chatOnly ? [] : catalog.createTools({
         toolFactory: tool,
         executors: { correlation_plot: execute },
@@ -56,10 +58,7 @@ export function createStrandsRunner({ execute = defaultExecutor(),
         calls: toolCalls,
       }),
     });
-    const conversation = history.length
-      ? `Previous conversation (for context):\n${history.map(turn => `${turn.role}: ${turn.content}`).join('\n')}\nCurrent user message: ${prompt}`
-      : prompt;
-    const result = await agent.invoke(conversation);
+    const result = await agent.invoke(prompt);
     return {
       message: messageText(result.lastMessage),
       toolCalls,

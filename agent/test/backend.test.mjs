@@ -36,11 +36,13 @@ test('chat-only runner carries conversation context without registering tools', 
     constructor(config) {
       assert.deepEqual(config.tools, []);
       assert.match(config.systemPrompt, /cannot inspect the selected cohort/);
+      assert.deepEqual(config.messages, [
+        { role: 'user', content: [{ text: 'What is a cohort?' }] },
+        { role: 'assistant', content: [{ text: 'A set of cases' }] },
+      ]);
     }
     async invoke(prompt) {
-      assert.match(prompt, /user: What is a cohort\?/);
-      assert.match(prompt, /assistant: A set of cases/);
-      assert.match(prompt, /Current user message: How do I compare them\?/);
+      assert.equal(prompt, 'How do I compare them?');
       return { lastMessage: { content: [{ text: 'Use the analysis tools.' }] } };
     }
   }
@@ -54,6 +56,39 @@ test('chat-only runner carries conversation context without registering tools', 
     { role: 'assistant', content: 'A set of cases' },
   ] });
   assert.deepEqual(result, { message: 'Use the analysis tools.', toolCalls: [] });
+});
+
+test('a new comparison keeps an earlier plot request in history only', async () => {
+  class FakeAgent {
+    constructor(config) {
+      this.config = config;
+      assert.match(config.systemPrompt, /do not rerun their tool calls/);
+      assert.deepEqual(config.messages, [
+        { role: 'user', content: [{ text: 'Compare overall survival for CGS high risk' }] },
+        { role: 'assistant', content: [{ text: 'Here is the survival comparison.' }] },
+      ]);
+    }
+    async invoke(prompt) {
+      assert.equal(prompt, 'Compare CGS high risk and gender');
+      await this.config.tools[0].callback({ primaryVariable: 'CGS high risk', secondaryVariable: 'gender' });
+      return { lastMessage: { content: [{ text: 'Here is the comparison.' }] } };
+    }
+  }
+  const run = createStrandsRunner({
+    loadSdk: async () => ({ Agent: FakeAgent, tool: definition => definition }),
+    loadBedrock: async () => ({ BedrockModel: class {} }),
+    execute: async () => ({ summary: 'Comparison complete' }),
+  });
+  const result = await run({
+    prompt: 'Compare CGS high risk and gender',
+    history: [
+      { role: 'user', content: 'Compare overall survival for CGS high risk' },
+      { role: 'assistant', content: 'Here is the survival comparison.' },
+    ],
+  });
+  assert.deepEqual(result.toolCalls.map(call => call.input), [
+    { primaryVariable: 'CGS high risk', secondaryVariable: 'gender' },
+  ]);
 });
 
 test('catalog lists all website areas but registers only implemented tools', () => {
