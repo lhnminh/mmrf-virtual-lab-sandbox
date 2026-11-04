@@ -13,8 +13,8 @@ from cohort import UPDATE_TOOL, CohortHooks, prompt_context, state_from_update
 from runs import LazyAdapter, handle_run
 
 REGION = os.environ["AGENT_REGION"]
-MAX_TOKENS = 1024
-GATEWAY_TIMEOUT_SECONDS = 60
+MAX_TOKENS = int(os.environ.get("MAX_OUTPUT_TOKENS", "1024"))
+GATEWAY_TIMEOUT_SECONDS = int(os.environ.get("GATEWAY_TIMEOUT_SECONDS", "60"))
 
 # Don't enable tracing without redacting cohortFilter. Tool spans record the tool call
 # after CohortHooks adds it, so they would hold filters, which can hold case IDs.

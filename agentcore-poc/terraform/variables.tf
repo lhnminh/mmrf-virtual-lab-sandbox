@@ -44,6 +44,23 @@ variable "lambda_memory_mb" {
   default     = 512
 }
 
+variable "tool_timeout_seconds" {
+  description = "Longest a tool call may run. Used by the Lambda and the agent's Gateway client."
+  type        = number
+  default     = 60
+
+  validation {
+    condition     = var.tool_timeout_seconds >= 10 && var.tool_timeout_seconds <= 300
+    error_message = "Use 10 to 300 seconds."
+  }
+}
+
+variable "max_output_tokens" {
+  description = "Most tokens the model may write in one call."
+  type        = number
+  default     = 1024
+}
+
 variable "agent_zip_path" {
   description = "Agent package built by scripts/build_agent.sh."
   type        = string

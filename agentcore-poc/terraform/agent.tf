@@ -119,9 +119,11 @@ resource "aws_bedrockagentcore_agent_runtime" "agent" {
   }
 
   environment_variables = {
-    AGENT_REGION = var.region
-    GATEWAY_URL  = aws_bedrockagentcore_gateway.tools.gateway_url
-    MODEL_ID     = var.model_id
+    AGENT_REGION            = var.region
+    GATEWAY_URL             = aws_bedrockagentcore_gateway.tools.gateway_url
+    MODEL_ID                = var.model_id
+    GATEWAY_TIMEOUT_SECONDS = tostring(var.tool_timeout_seconds)
+    MAX_OUTPUT_TOKENS       = tostring(var.max_output_tokens)
   }
 
   # The role's permissions must exist before Runtime validates it.

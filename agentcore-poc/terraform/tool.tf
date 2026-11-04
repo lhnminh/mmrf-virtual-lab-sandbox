@@ -58,7 +58,7 @@ resource "aws_lambda_function" "tools" {
   handler          = "handler.handler"
   filename         = data.archive_file.tools.output_path
   source_code_hash = data.archive_file.tools.output_base64sha256
-  timeout          = 60
+  timeout          = var.tool_timeout_seconds
   memory_size      = var.lambda_memory_mb
 
   environment {
