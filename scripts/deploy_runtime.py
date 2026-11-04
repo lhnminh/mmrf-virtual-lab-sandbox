@@ -77,6 +77,8 @@ def runtime_environment(ctx):
         environment.update(VIRTUAL_LAB_ORIGIN=ctx.access["origin"],
                            SANDBOX_ACCESS_USERNAME=ctx.access["username"],
                            SANDBOX_ACCESS_PASSWORD=ctx.access["password"])
+    if os.environ.get("KG_GATEWAY_URL"):
+        environment["KG_GATEWAY_URL"] = os.environ["KG_GATEWAY_URL"]
     environment.update(getattr(ctx, "extra_env", {}))
     return environment
 

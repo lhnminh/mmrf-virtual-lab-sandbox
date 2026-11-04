@@ -8,6 +8,8 @@ Tick the boxes as you go; this file is the chunk's status.
 
 Branch `task-1-agentcore-runtime`, not pushed. It can't merge before infra-3's F1, because `terraform/agentcore-runtime.tf` needs F1's `enable_agentcore` variable.
 
+**Update 2026-11-04, knowledge graph (done first, by team decision):** the Runtime agent answers from the sister team's gateway `mmrf-kg-gateway-hjyd9sqogd` when `KG_GATEWAY_URL` is set (`agent/src/knowledge-graph.mjs`), using four named tools. `kg_run_readonly_query` is left out. Unlike other tools, the model sees the graph, evidence and limitations as well as `summary`, because it needs ids for its next call; that is an exception to contract 1. Verified live on the Runtime; not yet in Chat, which has no knowledge graph component. The Runtime now uses the shared role `mmrf-orchestrator-agent-runtime`, the renamed smoke role, which the knowledge graph team's Terraform grants gateway access. `agentcore-runtime.tf` still creates a separate `<name>-agent-runtime` role, so decide which one the real Runtime uses. The Virtual Lab deploy started this day; check its result before the steps below.
+
 **Working:**
 
 - The agent runs on AgentCore Runtime as `mmrf_smoke_agent` (id `mmrf_smoke_agent-mEvkp72vEB`) in the team account 548574235556, `us-west-2`. It is chat-only, with no tools. Test it with `AWS_REGION=us-west-2 python3 scripts/runtime_smoke.py invoke "What can you do?"`.

@@ -1,4 +1,5 @@
 import { CORRELATION_TOOL_SPEC, createCorrelationTool } from './correlation-tool.mjs';
+import { KNOWLEDGE_GRAPH_APP, knowledgeGraphRegistrations } from './knowledge-graph.mjs';
 
 // Snapshot of the pinned frontend's analysisTools.json. An app is a website
 // area, not an agent capability until at least one tool is registered below.
@@ -73,4 +74,7 @@ export function createToolCatalog({ apps = WEBSITE_APPS, registrations = REGISTE
   return { list, createTools };
 }
 
-export const toolCatalog = createToolCatalog();
+export const toolCatalog = createToolCatalog(process.env.KG_GATEWAY_URL ? {
+  apps: [...WEBSITE_APPS, KNOWLEDGE_GRAPH_APP],
+  registrations: [...REGISTERED_TOOLS, ...knowledgeGraphRegistrations()],
+} : {});

@@ -2,6 +2,7 @@ import { createHttpCorrelationExecutor } from './correlation-tool.mjs';
 import { parsePromptRequest } from './contract.mjs';
 import { toolCatalog } from './tool-catalog.mjs';
 import { createRoutingExecutor } from './executors/index.mjs';
+import { KNOWLEDGE_GRAPH_PROMPT } from './knowledge-graph.mjs';
 
 // A teammate's correlation service takes over when CORRELATION_TOOL_URL is set.
 export function defaultExecutor() {
@@ -41,15 +42,18 @@ export function createStrandsRunner({ execute = defaultExecutor(),
   loadSdk = () => import('@strands-agents/sdk'),
   loadBedrock = () => import('@strands-agents/sdk/models/bedrock'),
   modelId = process.env.BEDROCK_MODEL_ID || 'global.anthropic.claude-sonnet-4-6',
-  chatOnly = process.env.AGENT_CHAT_ONLY === '1' } = {}) {
+  chatOnly = process.env.AGENT_CHAT_ONLY === '1',
+  knowledgeGraph = Boolean(process.env.KG_GATEWAY_URL) } = {}) {
+  const toolPrompt = knowledgeGraph ? `${SYSTEM_PROMPT}\n${KNOWLEDGE_GRAPH_PROMPT}` : SYSTEM_PROMPT;
   return async (rawRequest) => {
     const { prompt, history, context } = parsePromptRequest(rawRequest);
     const [{ Agent, tool }, { BedrockModel }] = await Promise.all([loadSdk(), loadBedrock()]);
     const toolCalls = [];
     // A fresh agent per request prevents one user's prompt history reaching another.
     const agent = new Agent({
-      model: new BedrockModel({ modelId, maxTokens: 1024 }),
-      systemPrompt: chatOnly ? CHAT_SYSTEM_PROMPT : SYSTEM_PROMPT,
+      // Knowledge graph answers cite evidence and run to several tool calls.
+      model: new BedrockModel({ modelId, maxTokens: knowledgeGraph && !chatOnly ? 4096 : 1024 }),
+      systemPrompt: chatOnly ? CHAT_SYSTEM_PROMPT : toolPrompt,
       messages: history.map(turn => ({ role: turn.role, content: [{ text: turn.content }] })),
       tools: chatOnly ? [] : catalog.createTools({
         toolFactory: tool,
