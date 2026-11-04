@@ -1,16 +1,18 @@
 # AgentCore AG-UI proof of concept
 
+This stack is separate from the deployed agent in `agent/` and is off by default. `enable_python_agent` controls it; `enable_agentcore` controls the `agent/` Gateway and tool Lambda.
+
 A Python Strands agent on AgentCore Runtime that speaks AG-UI, with one Python tool behind AgentCore Gateway. The local Chat page on `next dev` streams its answers.
 
 Design: [`docs/superpowers/specs/2026-11-03-agentcore-agui-chat-design.md`](../docs/superpowers/specs/2026-11-03-agentcore-agui-chat-design.md) and the [architecture diagram](../docs/superpowers/specs/2026-11-03-agentcore-agui-chat-architecture.drawio.png).
 
-The Terraform is a module in the root stack, `terraform/modules/agentcore`, and stays off unless `enable_agentcore` is true. It needs `enable_https`, because tools call the CloudFront origin. These resources bill until destroyed.
+The Terraform is a module in the root stack, `terraform/modules/agentcore`, and stays off unless `enable_python_agent` is true. It needs `enable_https`, because tools call the CloudFront origin. These resources bill until destroyed.
 
 ## Deploy
 
-Needs `uv`, Terraform and the `workshop` AWS profile. Through the launcher, run `init` with `--enable-agentcore`, then `deploy`: it builds the agent, applies and fills the tools' secret.
+Needs `uv`, Terraform and the `workshop` AWS profile. Through the launcher, run `init` with `--enable-python-agent`, then `deploy`: it builds the agent, applies and fills the tools' secret.
 
-To change only the agent on an existing sandbox, set `"enable_agentcore": true` in both `terraform/sandbox.auto.tfvars.json` and `generated/aws/config.json`. Without the second, the launcher's next run turns it off and destroys the agent. Then:
+To change only the agent on an existing sandbox, set `"enable_python_agent": true` in both `terraform/sandbox.auto.tfvars.json` and `generated/aws/config.json`. Without the second, the launcher's next run turns it off and destroys the agent. Then:
 
 ```sh
 scripts/build_agent.sh
@@ -78,7 +80,7 @@ Browser checks use the Chrome DevTools MCP against the deployed agent, after a d
 
 ## Destroy
 
-Set `enable_agentcore` to false and apply from `terraform/`, or run the launcher's `destroy`, which removes the whole sandbox.
+Set `enable_python_agent` to false and apply from `terraform/`, or run the launcher's `destroy`, which removes the whole sandbox.
 
 ## Live checks
 

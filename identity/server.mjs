@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 import { createIdentity } from './token.mjs';
 import { bridgePayload } from './cohorts.mjs';
 import { publicOrigin } from './access.mjs';
+import { createRuntimeClient } from './runtime-client.mjs';
 
 if (process.env.SYNTHETIC_SANDBOX !== '1') throw new Error('This service requires SYNTHETIC_SANDBOX=1');
 const identity = createIdentity();
@@ -22,6 +23,7 @@ const targets = {
   guppy: process.env.GUPPY_ORIGIN || 'http://guppy:8080',
   analysis: process.env.ANALYSIS_ORIGIN || 'http://analysis:8000',
   proteinpaint: process.env.PROTEINPAINT_ORIGIN || 'http://proteinpaint:3000',
+  agent: process.env.AGENT_ORIGIN || 'http://agent:8787',
 };
 // This launcher can only route to its own service names or loopback. It cannot
 // point its disposable identity at a real commons through environment settings.
@@ -30,6 +32,11 @@ for (const [name, value] of Object.entries(targets)) {
   if (url.protocol !== 'http:' || ![name, 'localhost', '127.0.0.1'].includes(url.hostname) ||
       url.username || url.password || url.pathname !== '/' || url.search || url.hash) throw new Error(`Invalid sandbox ${name} origin`);
 }
+// AGENTCORE_ENDPOINT exists for tests, so it can only name this machine.
+const runtimeEndpoint = process.env.AGENTCORE_ENDPOINT;
+if (runtimeEndpoint && !/^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(runtimeEndpoint)) throw new Error('Invalid AgentCore endpoint');
+const invokeRuntime = process.env.AGENTCORE_RUNTIME_ARN
+  ? createRuntimeClient({ arn: process.env.AGENTCORE_RUNTIME_ARN, endpoint: runtimeEndpoint }) : null;
 function json(res, value, status = 200) {
   res.writeHead(status, { 'content-type': 'application/json', 'cache-control': 'no-store' });
   res.end(JSON.stringify(value));
@@ -102,6 +109,15 @@ const server = http.createServer(async (req, res) => {
     let targetMethod = req.method;
     if (path.startsWith('/guppy/')) { target = targets.guppy; targetPath = req.url.slice('/guppy'.length); }
     if (path.startsWith('/analysis/')) target = targets.analysis;
+    if (path === '/agent/v1/prompts' && req.method === 'POST') {
+      if (invokeRuntime) {
+        const result = await invokeRuntime(await body(req));
+        res.writeHead(result.status, { 'content-type': 'application/json', 'cache-control': 'no-store' });
+        return res.end(result.body);
+      }
+      target = targets.agent;
+      targetPath = '/v1/prompts';
+    }
     let ppBody;
     if (path.startsWith('/protein-paint/')) {
       // Older PP clients emit both Content-Type and content-type on long
@@ -148,6 +164,10 @@ const server = http.createServer(async (req, res) => {
       cookie: `access_token=${token}`, 'x-forwarded-host': configuredOrigin ? new URL(configuredOrigin).host : req.headers.host,
       'x-forwarded-proto': configuredOrigin ? 'https' : 'http' };
     delete headers['proxy-authorization'];
+    if (target === targets.agent) {
+      delete headers.authorization;
+      delete headers.cookie;
+    }
     if (ppBody) {
       headers['content-type'] = 'application/json';
       headers['content-length'] = String(ppBody.length);

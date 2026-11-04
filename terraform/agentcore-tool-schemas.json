@@ -1,0 +1,75 @@
+[
+  {
+    "name": "correlation_plot",
+    "description": "Run the existing Correlation Plot for two clinical or genomic variables. Ask the user to clarify missing or ambiguous variables before calling.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "primaryVariable": {
+          "type": "string",
+          "description": "First variable as named by the user"
+        },
+        "secondaryVariable": {
+          "type": "string",
+          "description": "Second variable as named by the user"
+        },
+        "cohortFilterJson": {
+          "type": "string",
+          "description": "Selected website cohort, supplied by the agent"
+        }
+      },
+      "required": [
+        "primaryVariable",
+        "secondaryVariable"
+      ]
+    }
+  },
+  {
+    "name": "top_mutated_genes",
+    "description": "Find the most frequently mutated genes in a demographic cohort and prepare that cohort for saving.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "race": {
+          "type": "string",
+          "description": "Race category, such as Black or African American"
+        },
+        "limit": {
+          "type": "integer",
+          "description": "Number of top genes, from 1 to 10"
+        },
+        "cohortFilterJson": {
+          "type": "string",
+          "description": "Selected website cohort, supplied by the agent"
+        }
+      },
+      "required": [
+        "race"
+      ]
+    }
+  },
+  {
+    "name": "differential_expression",
+    "description": "Compare expression between mutation-positive and mutation-tested negative cases for a gene.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "gene": {
+          "type": "string",
+          "description": "Mutation gene symbol, such as KRAS"
+        },
+        "limit": {
+          "type": "integer",
+          "description": "Number of leading expression genes, from 1 to 20"
+        },
+        "cohortFilterJson": {
+          "type": "string",
+          "description": "Selected website cohort, supplied by the agent"
+        }
+      },
+      "required": [
+        "gene"
+      ]
+    }
+  }
+]

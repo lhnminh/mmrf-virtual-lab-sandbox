@@ -19,11 +19,11 @@ variable "name" {
   }
 }
 variable "operator_role_arn" {
-  description = "Existing IAM role the operator uses for Kubernetes administration; no credentials are created."
+  description = "Existing IAM role or user the operator uses for Kubernetes administration; no credentials are created."
   type        = string
   validation {
-    condition     = can(regex("^arn:aws:iam::[0-9]{12}:role/.+", var.operator_role_arn))
-    error_message = "Supply an existing IAM role ARN in the sandbox account."
+    condition     = can(regex("^arn:aws:iam::[0-9]{12}:(role|user)/.+", var.operator_role_arn))
+    error_message = "Supply an existing IAM role or user ARN in the sandbox account."
   }
 }
 variable "operator_cidrs" {
@@ -47,18 +47,28 @@ variable "vpc_cidr" {
     error_message = "Use an IPv4 /16 for the new isolated VPC."
   }
 }
+variable "kg_gateway_arn" {
+  description = "Knowledge graph AgentCore Gateway the agent may call; empty for none."
+  type        = string
+  default     = ""
+}
 variable "enable_https" {
   description = "Add a private ALB and CloudFront HTTPS entry point; Helm must enable the password-protected access service."
   type        = bool
   default     = false
 }
 variable "enable_agentcore" {
-  description = "Create the AgentCore Runtime, Gateway and tool Lambda. Tools call the CloudFront origin, so this needs enable_https."
+  description = "Create AgentCore Gateway and its tool Lambda."
+  type        = bool
+  default     = false
+}
+variable "enable_python_agent" {
+  description = "Create the separate Python agent stack in agentcore/: its Runtime, Gateway and tool Lambda. Tools call the CloudFront origin, so this needs enable_https."
   type        = bool
   default     = false
   validation {
-    condition     = !var.enable_agentcore || var.enable_https
-    error_message = "enable_agentcore needs enable_https."
+    condition     = !var.enable_python_agent || var.enable_https
+    error_message = "enable_python_agent needs enable_https."
   }
 }
 variable "agent_zip_path" {

@@ -21,4 +21,25 @@ spec:
       ports:
         - {protocol: UDP, port: 53}
         - {protocol: TCP, port: 53}
+{{- if .Values.agentcore.runtimeArn }}
+---
+# identity calls the AgentCore API and reads the node role's credentials.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: identity-agentcore
+spec:
+  podSelector:
+    matchLabels: {app.kubernetes.io/name: identity, app.kubernetes.io/instance: {{ .Release.Name }}}
+  policyTypes: [Egress]
+  egress:
+    - to:
+        - ipBlock: {cidr: 169.254.169.254/32}
+      ports:
+        - {protocol: TCP, port: 80}
+    - to:
+        - ipBlock: {cidr: 0.0.0.0/0}
+      ports:
+        - {protocol: TCP, port: 443}
+{{- end }}
 {{- end }}

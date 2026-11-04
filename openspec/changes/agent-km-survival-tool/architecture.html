@@ -1,0 +1,158 @@
+<title>Survival Agent Architecture</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@400;600&display=swap">
+<style>
+/* Layout: wireframe sheet; left-to-right request path, nested boxes for ownership */
+:root {
+  --bg: #f6f7f9; --paper: #ffffff; --ink: #1d2430; --muted: #5d6878;
+  --line: #9aa4b2; --new: #2f6fd6; --new-bg: #eaf1fc; --old-bg: #f0f2f5;
+  --mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+  --sans: "IBM Plex Sans", system-ui, -apple-system, sans-serif;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #12161d; --paper: #1a2029; --ink: #e4e8ee; --muted: #9aa5b4;
+  --line: #5a6576; --new: #7fa9ef; --new-bg: #1c2a40; --old-bg: #222934; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #12161d; --paper: #1a2029; --ink: #e4e8ee; --muted: #9aa5b4;
+  --line: #5a6576; --new: #7fa9ef; --new-bg: #1c2a40; --old-bg: #222934; color-scheme: dark }
+body { background: var(--bg); color: var(--ink); font-family: var(--sans); line-height: 1.45;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 28px 40px; }
+.wrap { max-width: 1180px; margin: 0 auto; display: grid; gap: 20px; }
+h1 { font-size: 1.5rem; margin: 0; text-wrap: balance; }
+.sub { color: var(--muted); margin: 0; max-width: 70ch; }
+.legend { display: flex; flex-wrap: wrap; gap: 16px; font-size: .85rem; color: var(--muted); }
+.legend span { display: inline-flex; align-items: center; gap: 6px; }
+.sw { width: 14px; height: 14px; border: 1.5px solid var(--line); border-radius: 3px; background: var(--old-bg); }
+.sw.new { border-color: var(--new); background: var(--new-bg); border-style: solid; }
+.sw.stub { border-style: dashed; background: var(--paper); }
+
+.diagram { display: grid; grid-template-columns: minmax(0,1fr) auto minmax(0,.8fr) auto minmax(0,2.4fr) auto minmax(0,1.3fr); gap: 10px; align-items: stretch; }
+.box { border: 1.5px solid var(--line); border-radius: 8px; background: var(--old-bg); padding: 12px; display: grid; gap: 8px; align-content: start; min-width: 0; }
+.box.new { border-color: var(--new); background: var(--new-bg); }
+.box.stub { border-style: dashed; background: var(--paper); }
+.box.inner { background: var(--paper); }
+.label { font-family: var(--mono); font-size: .72rem; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+.box.new > .label { color: var(--new); }
+.name { font-weight: 600; font-size: .98rem; }
+.note { font-size: .82rem; color: var(--muted); }
+code { font-family: var(--mono); font-size: .8rem; background: var(--paper); border: 1px solid var(--line); border-radius: 4px; padding: 0 4px; overflow-wrap: anywhere; }
+.box.inner code { background: var(--bg); }
+.arrow { display: grid; place-items: center; color: var(--muted); font-family: var(--mono); font-size: .75rem; text-align: center; gap: 2px; }
+.arrow b { font-size: 1.3rem; color: var(--ink); line-height: 1; }
+.tools { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.tool { border: 1.5px solid var(--new); border-radius: 6px; background: var(--paper); padding: 8px; display: grid; gap: 4px; min-width: 0; }
+.wraps { font-size: .78rem; color: var(--muted); border-top: 1px dashed var(--line); padding-top: 4px; }
+
+.flow { background: var(--paper); border: 1px solid var(--line); border-radius: 8px; padding: 14px 18px; }
+.flow h2 { font-size: 1rem; margin: 0 0 8px; }
+.flow ol { margin: 0; padding-left: 1.3em; display: grid; gap: 4px; max-width: 80ch; }
+.foot { font-size: .8rem; color: var(--muted); }
+
+@media (max-width: 900px) {
+  .diagram { grid-template-columns: minmax(0,1fr); }
+  .arrow { grid-auto-flow: column; justify-content: center; }
+  .arrow b { transform: rotate(90deg); }
+}
+@media (max-width: 480px) { .tools { grid-template-columns: 1fr; } }
+</style>
+
+<div class="wrap">
+  <h1>Survival Agent Architecture</h1>
+  <p class="sub">Phase 1, local Docker Compose. The agent scaffold is merged; this change adds the survival executor, Compose service and gateway route. The chat UI is built in parallel.</p>
+  <div class="legend">
+    <span><i class="sw new"></i>New in this change</span>
+    <span><i class="sw"></i>Existing</span>
+    <span><i class="sw stub"></i>Built in parallel (assistant-ui)</span>
+  </div>
+
+  <div class="diagram" role="img" aria-label="Chat UI calls the gateway, which routes to the agent service; the agent's tools call the existing Gen3 analysis service through the gateway.">
+    <!-- Client -->
+    <div class="box">
+      <div class="label">Client · browser</div>
+      <div class="name">Virtual Lab frontend</div>
+      <div class="box stub">
+        <div class="label">Chat panel</div>
+        <div class="name">assistant-ui</div>
+        <div class="note">LocalRuntime adapter sends <code>prompt</code> + selected <code>cohortFilter</code></div>
+      </div>
+      <div class="box inner">
+        <div class="label">Tool UI: correlation_plot</div>
+        <div class="name">&lt;SurvivalPlot&gt;</div>
+        <div class="note">Existing chart component; renders <code>plot</code> when <code>type</code> is survival</div>
+      </div>
+    </div>
+
+    <div class="arrow"><b>⇄</b>JSON</div>
+
+    <!-- Gateway -->
+    <div class="box">
+      <div class="label">Gateway · :3080</div>
+      <div class="name">identity proxy</div>
+      <div class="note">New route <code>/agent/*</code> → agent:8787</div>
+      <div class="note">Adds synthetic auth token</div>
+      <div class="note">Existing: <code>/analysis/*</code>, <code>/protein-paint/*</code>, <code>/guppy/*</code></div>
+    </div>
+
+    <div class="arrow"><b>⇄</b></div>
+
+    <!-- Backend -->
+    <div class="box new">
+      <div class="label">Backend · agent/ (scaffold merged; survival is new)</div>
+      <div class="name">Node 22 · Strands TypeScript SDK</div>
+      <div class="box inner">
+        <div class="label">POST /v1/prompts (existing)</div>
+        <div class="note">In: <code>{prompt, context.cohortFilter}</code>. Out: <code>{message, toolCalls}</code>. JSON, not streamed.</div>
+      </div>
+      <div class="box inner">
+        <div class="label">Agent (existing)</div>
+        <div class="note">Fresh agent per request. Bedrock (<code>BEDROCK_MODEL_ID</code>). Model sees only the tool <code>summary</code>.</div>
+      </div>
+      <div class="tools">
+        <div class="tool">
+          <div class="label">Tool (existing)</div>
+          <div class="name">correlation_plot</div>
+          <div class="note"><code>primaryVariable, secondaryVariable</code> + request cohort</div>
+          <div class="wraps">Calls <code>execute(input, context)</code> → <code>{summary, plot}</code></div>
+        </div>
+        <div class="tool">
+          <div class="label">Executor (new)</div>
+          <div class="name">routing + survival</div>
+          <div class="note">Catalog resolves names; survival pairs only for now</div>
+          <div class="wraps">Wraps: <code>POST /analysis/v0/survival/</code>, one filter per group. Also served at <code>/v1/correlation</code>.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="arrow"><b>→</b>via gateway</div>
+
+    <!-- Existing services -->
+    <div class="box">
+      <div class="label">Existing services</div>
+      <div class="box inner">
+        <div class="name">Gen3 Analysis</div>
+        <div class="note">KM curves + log-rank p-value. Returns <code>SurvivalPlotData</code> shape.</div>
+      </div>
+      <div class="box inner">
+        <div class="name">Elasticsearch / Guppy</div>
+        <div class="note">Synthetic cases (1,000)</div>
+      </div>
+      <div class="box inner">
+        <div class="name">ProteinPaint</div>
+        <div class="note">Correlation tool. Link only, for parity.</div>
+      </div>
+    </div>
+  </div>
+
+  <section class="flow">
+    <h2>Journey 1: CGS high risk vs standard risk</h2>
+    <ol>
+      <li>User asks to compare survival for CGS high risk versus standard risk.</li>
+      <li>Chat panel POSTs <code>/agent/v1/prompts</code> with the prompt and the selected cohort.</li>
+      <li>Agent calls <code>correlation_plot("overall survival", "CGS risk")</code>.</li>
+      <li>The executor resolves both names and sends two filters (High risk, Standard risk) to Gen3 Analysis.</li>
+      <li>Tool returns <code>summary</code> to the model and <code>plot</code> to the response: 339 vs 661 cases, p = 7.1e-60.</li>
+      <li>Response JSON carries <code>message</code> and <code>toolCalls</code>; the chat panel renders the plot with <code>&lt;SurvivalPlot&gt;</code>.</li>
+    </ol>
+  </section>
+  <p class="foot">Phase 2 (later): streaming, multi-turn history, Helm/EKS deployment, IAM role for Bedrock, possible move to Bedrock AgentCore. Executors stay the same.</p>
+</div>

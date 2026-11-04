@@ -132,8 +132,66 @@ class LauncherTests(unittest.TestCase):
     def test_named_role_is_required(self):
         operator = launcher.Operator(CONFIG)
         operator.aws = Mock(return_value={"Account": CONFIG["account_id"], "Arn": "arn:aws:sts::123456789012:assumed-role/OtherRole/session"})
+        # Added cases: an IAM user operator must match exactly.
+        user = launcher.Operator({**CONFIG, "role_arn": "arn:aws:iam::123456789012:user/operator"})
+        user.aws = Mock(return_value={"Account": CONFIG["account_id"], "Arn": "arn:aws:iam::123456789012:user/operator"})
+        self.assertEqual(user.identity()["Account"], CONFIG["account_id"])
+        user.aws = Mock(return_value={"Account": CONFIG["account_id"], "Arn": "arn:aws:iam::123456789012:user/someone-else"})
+        with self.assertRaises(ValueError):
+            user.identity()
         with self.assertRaisesRegex(ValueError, "configured operator IAM role"):
             operator.identity()
+
+    def test_only_rebuilds_named_services_and_keeps_other_image_ids(self):
+        with tempfile.TemporaryDirectory() as directory:
+            operator = launcher.Operator(CONFIG)
+            operator.directory = Path(directory)
+            old = {name: "sha256:old-" + name for name in launcher.SERVICES}
+            (operator.directory / "build.json").write_text(json.dumps({"tag": "build-old", "images": old}))
+            built = []
+            def run(args, capture=False, **_):
+                args = [str(arg) for arg in args]
+                if "build" in args and args[0] == "docker":
+                    built.append(args[-1])
+                if "{{.Architecture}}" in args:
+                    return "amd64\n"
+                if "{{.Id}}" in args:
+                    return "sha256:new\n"
+                return ""
+            operator.run = run
+            operator.build(["identity"])
+            self.assertEqual(built, ["identity"])
+            images = json.loads((operator.directory / "build.json").read_text())["images"]
+            self.assertEqual(images["identity"], "sha256:new")
+            self.assertEqual(images["seed"], old["seed"])
+
+    def test_only_needs_a_full_build_first(self):
+        with tempfile.TemporaryDirectory() as directory:
+            operator = launcher.Operator(CONFIG)
+            operator.directory = Path(directory)
+            (operator.directory / "build.json").write_text(json.dumps({"tag": "x", "images": {"identity": "sha"}}))
+            with self.assertRaisesRegex(ValueError, "full build"):
+                operator.build(["identity"])
+
+    def test_parse_services_rejects_unknown_names(self):
+        self.assertEqual(launcher.parse_services("identity, frontend"), ["identity", "frontend"])
+        with self.assertRaises(argparse.ArgumentTypeError):
+            launcher.parse_services("identity,nope")
+
+    def test_config_only_reuses_deployed_images_without_terraform_or_build(self):
+        with tempfile.TemporaryDirectory() as directory:
+            operator = launcher.Operator(CONFIG)
+            operator.directory = Path(directory)
+            (operator.directory / "values.json").write_text(json.dumps({"images": {"identity": "repo@sha256:1"}}))
+            operator.identity = Mock()
+            operator.outputs = Mock(return_value={"https_url": "x"})
+            operator.install = Mock()
+            operator.tf = Mock()
+            operator.build = Mock()
+            operator.deploy_config()
+            operator.install.assert_called_once_with({"https_url": "x"}, {"identity": "repo@sha256:1"})
+            operator.tf.assert_not_called()
+            operator.build.assert_not_called()
 
     def test_secrets_are_private_and_origin_bound(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -210,7 +268,7 @@ class LauncherTests(unittest.TestCase):
         operator.deploy(yes=True)
         self.assertEqual(operator.tf.call_args_list[0].args, ("plan", "-input=false", "-out=sandbox.tfplan"))
         self.assertEqual(operator.tf.call_args_list[1].args, ("apply", "-input=false", "sandbox.tfplan"))
-        operator.build.assert_called_once_with()
+        operator.build.assert_called_once_with(None)
 
     def test_build_failure_stops_deploy_before_publishing(self):
         operator = launcher.Operator(CONFIG)

@@ -21,6 +21,8 @@ import time
 import urllib.error
 import urllib.request
 from uuid import uuid4
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import deploy_tools
 
 ROOT = Path(__file__).resolve().parents[1]
 SERVICES = ("seed", "guppy", "analysis", "proteinpaint", "identity", "frontend")
@@ -76,7 +78,12 @@ class Operator:
         caller = self.aws("sts", "get-caller-identity")
         if caller["Account"] != self.config["account_id"]:
             raise ValueError("STOP: selected profile is not in the configured sandbox account")
-        role_name = self.config["role_arn"].split("/")[-1]
+        operator_arn = self.config["role_arn"]
+        if ":user/" in operator_arn:
+            if caller["Arn"] != operator_arn:
+                raise ValueError("STOP: selected profile is not the configured operator IAM user")
+            return caller
+        role_name = operator_arn.split("/")[-1]
         if f":assumed-role/{role_name}/" not in caller["Arn"]:
             raise ValueError("STOP: selected profile is not assuming the configured operator IAM role")
         return caller
@@ -102,6 +109,7 @@ class Operator:
             "vpc_cidr": c["vpc_cidr"], "kubernetes_version": c["kubernetes_version"],
             "enable_https": True,
             "enable_agentcore": bool(c.get("enable_agentcore")),
+            "enable_python_agent": bool(c.get("enable_python_agent")),
         })
         self.tf("init", "-backend=false", "-input=false")
         if self.tf("workspace", "show", capture=True).strip() != "default":
@@ -134,25 +142,30 @@ class Operator:
             raise ValueError("m6i.xlarge is not offered in this region")
         print("Read-only account/network/instance checks passed. IAM/SCP permissions, quotas and CloudFront VPC-origin support still require live provisioning.")
 
-    def build(self):
+    def build(self, only=None):
+        record = self.directory / "build.json"
+        previous = json.loads(record.read_text())["images"] if only else {}
+        if only and set(previous) != set(SERVICES):
+            raise ValueError("Run a full build before --only")
         # A failed build must not leave an older record for --skip-build to publish.
-        (self.directory / "build.json").unlink(missing_ok=True)
+        record.unlink(missing_ok=True)
         self.run([sys.executable, "scripts/fetch_sources.py"])
         self.run([sys.executable, "synthetic/generate.py"])
         override = self.directory / "build-compose.json"
         private_json(override, {"services": {name: {"image": f"mmrf-sandbox/{name}:aws-build"} for name in SERVICES}})
         # Separate build project/tags: never stop or replace a developer's local
         # containers, volumes, :local images, or checkout via Compose labels.
-        for service in SERVICES:
+        for service in only or SERVICES:
             self.run(["docker", "compose", "--project-name", "mmrf-aws-build", "-f", ROOT / "compose.yaml",
                       "-f", override, "build", service])
             architecture = self.run(["docker", "image", "inspect", f"mmrf-sandbox/{service}:aws-build",
                                      "--format", "{{.Architecture}}"], capture=True).strip()
             if architecture != "amd64":
                 raise ValueError(f"{service} is not amd64; refusing to publish")
-        images = {name: self.run(["docker", "image", "inspect", f"mmrf-sandbox/{name}:aws-build",
-                                 "--format", "{{.Id}}"], capture=True).strip() for name in SERVICES}
-        private_json(self.directory / "build.json", {"tag": "build-" + uuid4().hex[:16], "images": images})
+        images = {**previous, **{name: self.run(["docker", "image", "inspect", f"mmrf-sandbox/{name}:aws-build",
+                                                "--format", "{{.Id}}"], capture=True).strip() for name in only or SERVICES}}
+        # Unchanged images keep their ids, so their push only confirms existing layers.
+        private_json(record, {"tag": "build-" + uuid4().hex[:16], "images": images})
 
     def publish(self, outputs):
         build = json.loads((self.directory / "build.json").read_text())
@@ -205,7 +218,13 @@ class Operator:
         values = {"images": images, "imagePullPolicy": "IfNotPresent", "access": {
             "enabled": True, "publicOrigin": origin, "originCidrs": outputs["origin_cidrs"], "existingSecret": "sandbox-access",
             "credentialRevision": hashlib.sha256(credentials["password"].encode()).hexdigest()}}
-        private_json(self.directory / "values.json", values)
+        # Keep the last ARN, so a deploy without the variable can't disconnect Chat.
+        values_file = self.directory / "values.json"
+        previous = json.loads(values_file.read_text()).get("agentcore", {}) if values_file.exists() else {}
+        runtime_arn = os.environ.get("AGENTCORE_RUNTIME_ARN") or previous.get("runtimeArn")
+        if runtime_arn:
+            values["agentcore"] = {"runtimeArn": runtime_arn}
+        private_json(values_file, values)
         self.run(["helm", "upgrade", "--install", "synthetic", "helm", "--namespace", NAMESPACE,
                   "--kubeconfig", self.kubeconfig, "--kube-context", self.config["name"],
                   "--values", self.directory / "values.json", "--wait", "--timeout", "20m"])
@@ -225,24 +244,36 @@ class Operator:
         print("HTTPS site:", outputs["https_url"])
         print("Team login is stored only in", self.directory / "access.json", "(mode 0600); do not paste that file into chat.")
 
-    def deploy(self, yes=False, skip_build=False):
+    def deploy_config(self):
+        """Apply Helm settings to the images already deployed: no build, push or Terraform."""
+        self.identity()
+        values_file = self.directory / "values.json"
+        if not values_file.exists():
+            raise ValueError("Run a full deploy before --config-only")
+        self.install(self.outputs(), json.loads(values_file.read_text())["images"])
+
+    def deploy(self, yes=False, skip_build=False, only=None):
         self.preflight()
         if skip_build and not (self.directory / "build.json").exists():
             raise ValueError("Run build first before --skip-build")
         if self.config.get("enable_agentcore"):
+            deploy_tools.prepare()
+        if self.config.get("enable_python_agent"):
             self.run(["bash", ROOT / "agentcore/scripts/build_agent.sh"])
         self.init_terraform()
         self.tf("plan", "-input=false", "-out=sandbox.tfplan")
         confirm(self.config, yes, "CREATE/UPDATE the displayed sandbox resources")
         # Images build while AWS provisions; only publishing needs both.
         with ThreadPoolExecutor(1) as pool:
-            build = None if skip_build else pool.submit(self.build)
+            build = None if skip_build else pool.submit(self.build, only)
             self.tf("apply", "-input=false", "sandbox.tfplan")
             if build:
                 build.result()
         outputs = self.outputs()
         self.install(outputs, self.publish(outputs))
         if self.config.get("enable_agentcore"):
+            deploy_tools.deploy(self, outputs)
+        if self.config.get("enable_python_agent"):
             self.fill_agent_secret(outputs)
 
     def fill_agent_secret(self, outputs):
@@ -391,8 +422,8 @@ def initialize(args):
     if (ROOT / "terraform/terraform.tfstate").exists():
         raise ValueError("Terraform state already exists without operator configuration; recover its original configuration first")
     config = {"profile": args.profile, "account_id": args.account_id, "region": args.region,
-              "name": args.name, "vpc_cidr": args.vpc_cidr, "kubernetes_version": args.kubernetes_version,
-              "enable_agentcore": args.enable_agentcore}
+              "enable_agentcore": args.enable_agentcore, "enable_python_agent": args.enable_python_agent,
+              "name": args.name, "vpc_cidr": args.vpc_cidr, "kubernetes_version": args.kubernetes_version}
     import re
     if not re.fullmatch(r"\d{12}", args.account_id) or not re.fullmatch(r"[a-z][a-z0-9-]{2,30}", args.name):
         raise ValueError("Use a twelve-digit account ID and a 3–31 character lowercase deployment name")
@@ -404,13 +435,15 @@ def initialize(args):
         raise ValueError("STOP: selected profile is not in the expected sandbox account")
     if args.role_arn:
         config["role_arn"] = args.role_arn
+    elif ":user/" in caller["Arn"]:
+        config["role_arn"] = caller["Arn"]
     else:
         if ":assumed-role/" not in caller["Arn"]:
-            raise ValueError("Use a profile assuming an IAM role, not an IAM user")
+            raise ValueError("Use a profile for an IAM user or one assuming an IAM role")
         role_name = caller["Arn"].split(":assumed-role/", 1)[1].split("/")[0]
         config["role_arn"] = operator.aws("iam", "get-role", "--role-name", role_name)["Role"]["Arn"]
-    if not re.fullmatch(r"arn:aws:iam::" + args.account_id + r":role/.+", config["role_arn"]):
-        raise ValueError("Operator role must be a full IAM role ARN in the expected account")
+    if not re.fullmatch(r"arn:aws:iam::" + args.account_id + r":(role|user)/.+", config["role_arn"]):
+        raise ValueError("Operator must be a full IAM role or user ARN in the expected account")
     cidr = args.operator_cidr
     if not cidr:
         with urllib.request.urlopen("https://checkip.amazonaws.com", timeout=15) as response:
@@ -422,6 +455,13 @@ def initialize(args):
     operator.identity()
     private_json(CONFIG, config)
     print("Saved operator configuration to", CONFIG, "— no AWS credentials stored.")
+
+
+def parse_services(value):
+    names = [name.strip() for name in value.split(",") if name.strip()]
+    if not names or set(names) - set(SERVICES):
+        raise argparse.ArgumentTypeError("Choose from: " + ", ".join(SERVICES))
+    return names
 
 
 def main():
@@ -437,13 +477,18 @@ def main():
     init.add_argument("--kubernetes-version", default="1.35")
     init.add_argument("--role-arn")
     init.add_argument("--operator-cidr")
-    init.add_argument("--enable-agentcore", action="store_true", help="Also deploy the agent, Gateway and tools")
+    init.add_argument("--enable-agentcore", action="store_true", help="Also deploy the Gateway and tool Lambda")
+    init.add_argument("--enable-python-agent", action="store_true",
+                      help="Also deploy the separate Python agent stack in agentcore/")
     for command in ("check", "build", "deploy", "status", "destroy", "credentials"):
         p = sub.add_parser(command)
+        if command in ("build", "deploy"):
+            p.add_argument("--only", type=parse_services, help="Rebuild these comma-separated services; reuse the rest")
         if command in ("deploy", "destroy"):
             p.add_argument("--yes", action="store_true", help="Apply without the typed account-ID confirmation")
         if command == "deploy":
             p.add_argument("--skip-build", action="store_true", help="Reuse the previously recorded local image IDs")
+            p.add_argument("--config-only", action="store_true", help="Apply Helm settings to the deployed images only")
     args = parser.parse_args()
     if args.command == "doctor":
         missing = []
@@ -472,10 +517,13 @@ def main():
     with lock(operator.directory):
         if args.command == "build":
             operator.env["DOCKER_DEFAULT_PLATFORM"] = "linux/amd64"
-            operator.build()
+            operator.build(args.only)
         elif args.command == "deploy":
             operator.env["DOCKER_DEFAULT_PLATFORM"] = "linux/amd64"
-            operator.deploy(args.yes, args.skip_build)
+            if args.config_only:
+                operator.deploy_config()
+            else:
+                operator.deploy(args.yes, args.skip_build, args.only)
         elif args.command == "destroy":
             operator.destroy(args.yes)
         elif args.command == "check":

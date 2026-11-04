@@ -89,6 +89,18 @@ services:
       test: [CMD, node, -e, "fetch('http://localhost:3000/Login').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
       interval: 5s
       retries: 30
+  agent:
+    image: mmrf-sandbox/agent:local
+    build: {context: ., dockerfile: docker/agent.Dockerfile}
+    env_file:
+      - path: ./agent/.env
+        required: false
+    environment:
+      VIRTUAL_LAB_ORIGIN: http://identity:8080
+    healthcheck:
+      test: [CMD, node, -e, "fetch('http://localhost:8787/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 5s
+      retries: 30
   identity:
     image: mmrf-sandbox/identity:local
     build: {context: ., dockerfile: docker/identity.Dockerfile}
@@ -102,5 +114,6 @@ services:
       retries: 30
     depends_on:
       seed: {condition: service_completed_successfully}
+      agent: {condition: service_healthy}
 volumes:
   es-data:

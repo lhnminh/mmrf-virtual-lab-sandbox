@@ -1,7 +1,7 @@
 {
   "frontend": {
-    "url": "https://github.com/theMMRF/mmrf-data-commons.git",
-    "commit": "27cf09aca01a496b9d52f1b6a14e6859bf530fbb"
+    "url": "https://github.com/lhnminh/mmrf-data-commons.git",
+    "commit": "64272b94646e1d6538fac2b66985ace229189bb4"
   },
   "guppy": {
     "url": "https://github.com/theMMRF/guppy.git",

@@ -53,6 +53,13 @@ python3 scripts/aws_sandbox.py build
 python3 scripts/aws_sandbox.py deploy --skip-build
 ```
 
+Faster redeploys, after one full build and deploy:
+
+```sh
+python3 scripts/aws_sandbox.py deploy --only identity,frontend  # rebuild only these
+python3 scripts/aws_sandbox.py deploy --config-only             # Helm settings only
+```
+
 Stop any local Compose stack before building if Docker memory is constrained.
 After a failed or interrupted deployment, rerun `deploy` from the same
 checkout, adding `--skip-build` if the build finished. Existing local images

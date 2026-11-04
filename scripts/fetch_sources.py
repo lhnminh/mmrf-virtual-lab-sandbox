@@ -18,6 +18,11 @@ for name, source in json.loads((root / "sources.json").read_text()).items():
         if subprocess.check_output(["git", "-C", str(dest), "status", "--porcelain", "--untracked-files=all"], text=True):
             raise SystemExit(f"{dest} has local edits. Commit or discard them, "
                              "or build with docker compose directly while editing.")
+        current_url = subprocess.check_output(
+            ["git", "-C", str(dest), "remote", "get-url", "origin"], text=True
+        ).strip()
+        if current_url != source["url"]:
+            subprocess.run(["git", "-C", str(dest), "remote", "set-url", "origin", source["url"]], check=True)
         actual = subprocess.check_output(["git", "-C", str(dest), "rev-parse", "HEAD"], text=True).strip()
         if actual == source["commit"]:
             continue

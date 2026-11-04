@@ -19,7 +19,7 @@ variables {
 run "agentcore_is_off_by_default" {
   command = plan
   variables {
-    enable_agentcore = false
+    enable_python_agent = false
   }
   assert {
     condition     = length(module.agentcore) == 0 && output.agent_runtime_arn == null
@@ -30,18 +30,18 @@ run "agentcore_needs_https" {
   command = plan
   variables {
     enable_https     = false
-    enable_agentcore = true
+    enable_python_agent = true
   }
-  expect_failures = [var.enable_agentcore]
+  expect_failures = [var.enable_python_agent]
 }
 run "agentcore_on_with_https" {
   command = plan
   variables {
     enable_https     = true
-    enable_agentcore = true
+    enable_python_agent = true
   }
   assert {
     condition     = length(module.agentcore) == 1
-    error_message = "enable_agentcore must create the module."
+    error_message = "enable_python_agent must create the module."
   }
 }

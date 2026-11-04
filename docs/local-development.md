@@ -5,6 +5,14 @@ All backing services run in Compose. The sandbox uses generated data and a
 shared synthetic session; regular frontend development can continue using its
 existing service configuration.
 
+To use Chat, put your Bedrock model ID, region, and credentials in the ignored
+`agent/.env` file as described in [the agent README](../agent/README.md).
+Compose starts the private agent service and routes Chat requests through the
+identity gateway. Chat can answer general questions and follow-ups, and compare
+overall survival between groups through the `correlation_plot` tool, which it
+shows with the platform's survival chart. It doesn't use the selected cohort
+yet, so comparisons cover all cases.
+
 ## Change a service
 
 Edit `.sources/frontend`, `.sources/guppy`, or `.sources/analysis`, then rebuild
