@@ -62,17 +62,3 @@ variable "enable_agentcore" {
   type        = bool
   default     = false
 }
-variable "enable_python_agent" {
-  description = "Create the separate Python agent stack in agentcore/: its Runtime, Gateway and tool Lambda. Tools call the CloudFront origin, so this needs enable_https."
-  type        = bool
-  default     = false
-  validation {
-    condition     = !var.enable_python_agent || var.enable_https
-    error_message = "enable_python_agent needs enable_https."
-  }
-}
-variable "agent_zip_path" {
-  description = "Agent package. Defaults to the output of agentcore/scripts/build_agent.sh."
-  type        = string
-  default     = null
-}

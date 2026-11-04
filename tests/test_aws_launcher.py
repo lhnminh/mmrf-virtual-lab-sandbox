@@ -246,20 +246,6 @@ class LauncherTests(unittest.TestCase):
             with launcher.lock(Path(directory)):
                 pass
 
-    def test_agent_secret_is_sent_by_stdin_not_arguments(self):
-        operator = launcher.Operator(CONFIG)
-        calls = []
-        operator.run = lambda args, **kwargs: calls.append((args, kwargs))
-        with tempfile.TemporaryDirectory() as directory:
-            operator.directory = Path(directory)
-            (operator.directory / "access.json").write_text(json.dumps(
-                {"origin": "https://x.cloudfront.net", "username": "sandbox", "password": "not-in-arguments"}))
-            operator.fill_agent_secret({"agentcore_access_secret_arn": "arn:secret"})
-        args, kwargs = calls[0]
-        self.assertNotIn("not-in-arguments", " ".join(args))
-        self.assertEqual(json.loads(kwargs["data"]), {"username": "sandbox", "password": "not-in-arguments"})
-        self.assertTrue(kwargs["capture"])
-
     def test_deploy_applies_exactly_the_saved_plan(self):
         operator = launcher.Operator(CONFIG)
         for name in ["preflight", "build", "init_terraform", "outputs", "publish", "install"]:

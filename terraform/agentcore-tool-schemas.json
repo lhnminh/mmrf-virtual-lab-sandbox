@@ -71,5 +71,73 @@
         "gene"
       ]
     }
+  },
+  {
+    "name": "update_cohort",
+    "description": "Add, replace or remove filters on the researcher's selected cohort, such as \"only Black patients\" or \"drop the sex filter\". Give each field and value as the researcher said it; the tool matches them to the data and says if one is ambiguous or unknown. All changes in one call apply together or not at all.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "changes": {
+          "type": "array",
+          "description": "The changes to make, applied together.",
+          "items": {
+            "type": "object",
+            "properties": {
+              "field": {
+                "type": "string",
+                "description": "The field as the researcher said it, such as race, sex or ISS stage."
+              },
+              "op": {
+                "type": "string",
+                "enum": [
+                  "set",
+                  "remove"
+                ],
+                "description": "set replaces any value on the field; remove clears it."
+              },
+              "values": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "description": "The values as the researcher said them. Leave empty for remove."
+              }
+            },
+            "required": [
+              "field",
+              "op"
+            ]
+          }
+        },
+        "cohortFilterJson": {
+          "type": "string",
+          "description": "Selected website cohort, supplied by the agent"
+        }
+      },
+      "required": [
+        "changes"
+      ]
+    }
+  },
+  {
+    "name": "show_lollipop",
+    "description": "Show a Lollipop plot in ProteinPaint: where one gene's mutations fall along the protein and how often each occurs in the selected cohort. Use it for requests such as \"Show a lollipop plot for KRAS\" or \"Where do KRAS mutations fall on the protein?\". Give the gene as the researcher said it; aliases such as c-Myc resolve to MYC.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "gene": {
+          "type": "string",
+          "description": "The gene as the researcher said it, such as KRAS or c-Myc."
+        },
+        "cohortFilterJson": {
+          "type": "string",
+          "description": "Selected website cohort, supplied by the agent"
+        }
+      },
+      "required": [
+        "gene"
+      ]
+    }
   }
 ]

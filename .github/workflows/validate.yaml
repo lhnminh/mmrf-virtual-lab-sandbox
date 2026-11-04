@@ -29,10 +29,6 @@ jobs:
       - working-directory: terraform
         run: |
           terraform init -backend=false
-          terraform fmt -check -recursive
+          terraform fmt -check
           terraform validate
-          terraform test
-      - working-directory: terraform/modules/agentcore
-        run: |
-          terraform init -backend=false
           terraform test

@@ -108,8 +108,7 @@ class Operator:
             "operator_cidrs": [c["operator_cidr"]], "region": c["region"], "name": c["name"],
             "vpc_cidr": c["vpc_cidr"], "kubernetes_version": c["kubernetes_version"],
             "enable_https": True,
-            "enable_agentcore": bool(c.get("enable_agentcore")),
-            "enable_python_agent": bool(c.get("enable_python_agent")),
+            "enable_agentcore": c.get("enable_agentcore", False),
         })
         self.tf("init", "-backend=false", "-input=false")
         if self.tf("workspace", "show", capture=True).strip() != "default":
@@ -258,8 +257,6 @@ class Operator:
             raise ValueError("Run build first before --skip-build")
         if self.config.get("enable_agentcore"):
             deploy_tools.prepare()
-        if self.config.get("enable_python_agent"):
-            self.run(["bash", ROOT / "agentcore/scripts/build_agent.sh"])
         self.init_terraform()
         self.tf("plan", "-input=false", "-out=sandbox.tfplan")
         confirm(self.config, yes, "CREATE/UPDATE the displayed sandbox resources")
@@ -273,16 +270,6 @@ class Operator:
         self.install(outputs, self.publish(outputs))
         if self.config.get("enable_agentcore"):
             deploy_tools.deploy(self, outputs)
-        if self.config.get("enable_python_agent"):
-            self.fill_agent_secret(outputs)
-
-    def fill_agent_secret(self, outputs):
-        """Copy the team login to the tools' secret. Through stdin, so it isn't in a process list."""
-        login = json.loads((self.directory / "access.json").read_text())
-        self.run(["aws", "secretsmanager", "put-secret-value", "--secret-id", outputs["agentcore_access_secret_arn"],
-                  "--secret-string", "file:///dev/stdin", "--profile", self.config["profile"],
-                  "--region", self.config["region"], "--output", "json"], capture=True,
-                 data=json.dumps({"username": login["username"], "password": login["password"]}))
 
     def empty_repository(self, name):
         repository = self.config["name"] + "/" + name
@@ -422,7 +409,7 @@ def initialize(args):
     if (ROOT / "terraform/terraform.tfstate").exists():
         raise ValueError("Terraform state already exists without operator configuration; recover its original configuration first")
     config = {"profile": args.profile, "account_id": args.account_id, "region": args.region,
-              "enable_agentcore": args.enable_agentcore, "enable_python_agent": args.enable_python_agent,
+              "enable_agentcore": args.enable_agentcore,
               "name": args.name, "vpc_cidr": args.vpc_cidr, "kubernetes_version": args.kubernetes_version}
     import re
     if not re.fullmatch(r"\d{12}", args.account_id) or not re.fullmatch(r"[a-z][a-z0-9-]{2,30}", args.name):
@@ -477,9 +464,7 @@ def main():
     init.add_argument("--kubernetes-version", default="1.35")
     init.add_argument("--role-arn")
     init.add_argument("--operator-cidr")
-    init.add_argument("--enable-agentcore", action="store_true", help="Also deploy the Gateway and tool Lambda")
-    init.add_argument("--enable-python-agent", action="store_true",
-                      help="Also deploy the separate Python agent stack in agentcore/")
+    init.add_argument("--enable-agentcore", action="store_true")
     for command in ("check", "build", "deploy", "status", "destroy", "credentials"):
         p = sub.add_parser(command)
         if command in ("build", "deploy"):
