@@ -49,6 +49,9 @@ export default function (_common, refs) {
       termdb: {
         allowedTermTypes: ['geneVariant', 'cohort'],
         displaySampleIds: () => true,
+        // MSigDB sets name genes outside the synthetic gene models. Accept them for
+        // expression so clustering skips the genes without values, as hg38 does.
+        skipGeneNameValidation: ['geneExpression'],
         timeUnit: 'years',
         matrix: { appName: 'OncoMatrix' },
         convertSampleId: { get: inputs => Object.fromEntries(inputs.map(sample => [sample, sampleToCase.get(sample)])) },

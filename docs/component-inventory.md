@@ -8,6 +8,7 @@
 | ProteinPaint client/server | [stjude/proteinpaint](https://github.com/stjude/proteinpaint) | Academic-use license |
 | Elasticsearch | Elastic 7.17.29 public image | Upstream distribution terms |
 | Reference protein annotations | [UniProt](https://www.uniprot.org/) | CC BY 4.0; [attribution and sources](synthetic-data.md) |
+| MSigDB 2023.2.Hs gene sets | [St. Jude ProteinPaint build](https://proteinpaint.stjude.org/ppSupport/msigdb/db_2023.2.Hs) of [MSigDB](https://www.gsea-msigdb.org/gsea/msigdb/) | CC BY 4.0; [attribution](synthetic-data.md#prebuilt-gene-sets-in-clustering) |
 | Ras-domain annotations | [Pfam through InterPro](https://www.ebi.ac.uk/interpro/entry/pfam/PF00071/) | CC0; [attribution and sources](synthetic-data.md) |
 
 `sources.json` pins the first three source revisions. Dockerfiles pin the

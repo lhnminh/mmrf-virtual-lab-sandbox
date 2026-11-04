@@ -159,6 +159,15 @@ for alias in ('MYC', 'c-Myc', 'ENSG00000136997', 'ENST00000621592', 'NM_002467')
     lookup = call('/protein-paint/genelookup', {'genome': 'hg38', 'input': alias, 'deep': True})
     assert lookup['gmlst'][0]['name'] == 'MYC', alias
 print('PASS: synthetic reference, filtered meta-analysis UMAP, bulk UMAP, curated chart menu and MYC aliases')
+genome = call('/protein-paint/genomes')['genomes']['hg38']
+assert genome['termdbs']['msigdb']['label'] == 'MSigDB (2023.2.Hs)'
+msigdb = {'genome': 'hg38', 'dslabel': 'msigdb'}
+found = call('/protein-paint/termdb?' + urllib.parse.urlencode({**msigdb, 'findterm': 'MEK_UP', 'targetType': 'Dictionary Variables'}))['lst']
+assert {'MEK_UP.V1_UP', 'MEK_UP.V1_DN'} <= {t['id'] for t in found}
+mek = {g['symbol'] for g in call('/protein-paint/termdb?' + urllib.parse.urlencode({**msigdb, 'genesetByTermId': 'MEK_UP.V1_UP'}))}
+panel = {line.split('\t')[0] for line in (root / 'synthetic/public-genes.tsv').read_text().splitlines()[1:]}
+assert len(mek) > 150 and len(mek & panel) > 50, (len(mek), len(mek & panel))
+print(f'PASS: MSigDB prebuilt gene sets; MEK_UP.V1_UP has {len(mek & panel)} of {len(mek)} genes in the expression panel')
 
 survival = call('/analysis/v0/survival/', {'filters': [cohort_filter]})
 assert survival['results']
