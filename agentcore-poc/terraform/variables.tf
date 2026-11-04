@@ -17,8 +17,9 @@ variable "sandbox_origin" {
 }
 
 variable "region" {
-  type    = string
-  default = "us-west-2"
+  description = "AWS region for all resources."
+  type        = string
+  default     = "us-west-2"
 }
 
 variable "name" {

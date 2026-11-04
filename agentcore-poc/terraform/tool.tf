@@ -13,7 +13,7 @@ resource "aws_secretsmanager_secret" "access" {
 
 resource "aws_cloudwatch_log_group" "tools" {
   name              = "/aws/lambda/${local.hyphen_name}-tools"
-  retention_in_days = 7
+  retention_in_days = local.log_retention_days
 }
 
 resource "aws_iam_role" "tools" {

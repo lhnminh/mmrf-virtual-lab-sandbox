@@ -1,5 +1,6 @@
 locals {
-  hyphen_name = replace(lower(var.name), "_", "-")
+  hyphen_name        = replace(lower(var.name), "_", "-")
+  log_retention_days = 7
   # An inference profile ID is a foundation model ID with a routing prefix.
   foundation_model_id = replace(var.model_id, "/^(us|eu|apac|global)\\./", "")
   # Runtime and Gateway both act only for this account, in this region.
@@ -89,7 +90,7 @@ resource "aws_iam_role_policy" "runtime" {
 # so nothing it writes can outlive the stack.
 resource "aws_cloudwatch_log_group" "runtime" {
   name              = "/aws/bedrock-agentcore/runtimes/${aws_bedrockagentcore_agent_runtime.agent.agent_runtime_id}-DEFAULT"
-  retention_in_days = 7
+  retention_in_days = local.log_retention_days
 }
 
 resource "aws_bedrockagentcore_agent_runtime" "agent" {
