@@ -7,18 +7,16 @@ import time
 import urllib.error
 import urllib.request
 
+from results import failure, ok
+
 logger = logging.getLogger(__name__)
 
-HTTP_TIMEOUT_SECONDS = 10
+HTTP_TIMEOUT_SECONDS = 20
 _login_cache = None
 
 
 class ConfigError(Exception):
     """The Lambda's secret or environment can't be used. Holds no secret values."""
-
-
-def _failure(error, summary):
-    return {"ok": False, "error": error, "summary": summary}
 
 
 def parse_login(secret_string):
@@ -72,7 +70,7 @@ def check_virtual_lab_health(args, *, fetch_status=fetch_status, read_login=read
         login = read_login()
     except ConfigError as error:
         logger.error("Config error: %s", error)
-        return _failure("config_error", "The Virtual Lab login isn't configured.")
+        return failure("config_error", "The Virtual Lab login isn't configured.")
 
     started = time.monotonic()
     try:
@@ -80,11 +78,11 @@ def check_virtual_lab_health(args, *, fetch_status=fetch_status, read_login=read
     except urllib.error.HTTPError as error:
         logger.error("Virtual Lab returned HTTP %s", error.code)
         if error.code == 401:
-            return _failure("auth_failed", "The Virtual Lab refused the login.")
-        return _failure("unreachable", f"The Virtual Lab returned HTTP {error.code}.")
+            return failure("auth_failed", "The Virtual Lab refused the login.")
+        return failure("unreachable", f"The Virtual Lab returned HTTP {error.code}.")
     except OSError as error:  # URLError, socket errors and timeouts are all OSErrors.
         logger.error("Virtual Lab unreachable: %s", type(error).__name__)
-        return _failure("unreachable", "The Virtual Lab couldn't be reached.")
+        return failure("unreachable", "The Virtual Lab couldn't be reached.")
     latency_ms = int((time.monotonic() - started) * 1000)
 
     try:
@@ -92,15 +90,9 @@ def check_virtual_lab_health(args, *, fetch_status=fetch_status, read_login=read
     except ValueError:
         body = None
     if not _is_healthy(body):
-        return _failure("unhealthy", "The Virtual Lab status response wasn't healthy.")
-    return {
-        "ok": True,
-        "status": body["status"],
-        "synthetic": body["synthetic"],
-        "cases": body["cases"],
-        "latency_ms": latency_ms,
-        "summary": f"Virtual Lab is healthy: {body['cases']} synthetic cases.",
-    }
+        return failure("unhealthy", "The Virtual Lab status response wasn't healthy.")
+    return ok(f"Virtual Lab is healthy: {body['cases']} synthetic cases.",
+              cases=body["cases"], latency_ms=latency_ms)
 
 
 TOOLS = {"check_virtual_lab_health": check_virtual_lab_health}
@@ -111,5 +103,5 @@ def handler(event, context):
     name = full_name.split("___", 1)[-1]
     tool = TOOLS.get(name)
     if tool is None:
-        return _failure("unknown_tool", f"There is no tool named {name}.")
+        return failure("unknown_tool", f"There is no tool named {name}.")
     return tool(event)

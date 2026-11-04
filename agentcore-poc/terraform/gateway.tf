@@ -1,5 +1,15 @@
 locals {
-  tools = jsondecode(file("${path.module}/../lambda/tools.json"))
+  tool_schema_key = "tools-${filemd5("${path.module}/../lambda/tools.json")}.json"
+}
+
+# The tool schema lives in S3 as AWS's full schema format, so tools can have nested inputs.
+resource "aws_s3_object" "tool_schema" {
+  bucket = aws_s3_bucket.agent_code.id
+  # The hash in the key makes a changed schema update the target.
+  key          = local.tool_schema_key
+  source       = "${path.module}/../lambda/tools.json"
+  source_hash  = filemd5("${path.module}/../lambda/tools.json")
+  content_type = "application/json"
 }
 
 resource "aws_iam_role" "gateway" {
@@ -12,12 +22,20 @@ resource "aws_iam_role_policy" "gateway" {
   role = aws_iam_role.gateway.id
   policy = jsonencode({
     Version = "2012-10-17"
-    Statement = [{
-      Sid      = "InvokeTools"
-      Effect   = "Allow"
-      Action   = "lambda:InvokeFunction"
-      Resource = aws_lambda_function.tools.arn
-    }]
+    Statement = [
+      {
+        Sid      = "InvokeTools"
+        Effect   = "Allow"
+        Action   = "lambda:InvokeFunction"
+        Resource = aws_lambda_function.tools.arn
+      },
+      {
+        Sid      = "ReadToolSchema"
+        Effect   = "Allow"
+        Action   = "s3:GetObject"
+        Resource = "${aws_s3_bucket.agent_code.arn}/${local.tool_schema_key}"
+      },
+    ]
   })
 }
 
@@ -42,25 +60,9 @@ resource "aws_bedrockagentcore_gateway_target" "virtual_lab" {
       lambda {
         lambda_arn = aws_lambda_function.tools.arn
         tool_schema {
-          dynamic "inline_payload" {
-            for_each = local.tools
-            content {
-              name        = inline_payload.value.name
-              description = inline_payload.value.description
-              input_schema {
-                type = "object"
-                # Flat inputs only. Nested input needs these blocks extended.
-                dynamic "property" {
-                  for_each = inline_payload.value.properties
-                  content {
-                    name        = property.value.name
-                    type        = property.value.type
-                    description = property.value.description
-                    required    = property.value.required
-                  }
-                }
-              }
-            }
+          s3 {
+            uri                     = "s3://${aws_s3_bucket.agent_code.bucket}/${local.tool_schema_key}"
+            bucket_owner_account_id = var.sandbox_account_id
           }
         }
       }

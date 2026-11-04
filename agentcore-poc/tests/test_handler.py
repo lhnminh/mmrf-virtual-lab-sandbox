@@ -42,36 +42,35 @@ class Routing(unittest.TestCase):
     def test_routes_after_removing_prefix(self):
         seen = []
         original = tool.TOOLS["check_virtual_lab_health"]
-        tool.TOOLS["check_virtual_lab_health"] = lambda args: seen.append(args) or {"ok": True}
+        tool.TOOLS["check_virtual_lab_health"] = lambda args: seen.append(args) or {"status": "ok"}
         self.addCleanup(tool.TOOLS.__setitem__, "check_virtual_lab_health", original)
         result = tool.handler({"a": 1}, context_for("virtual-lab___check_virtual_lab_health"))
-        self.assertEqual(result, {"ok": True})
+        self.assertEqual(result, {"status": "ok"})
         self.assertEqual(seen, [{"a": 1}])
 
     def test_unknown_tool(self):
         result = tool.handler({}, context_for("virtual-lab___nope"))
-        self.assertFalse(result["ok"])
-        self.assertEqual(result["error"], "unknown_tool")
+        self.assertEqual(result["status"], "error")
+        self.assertEqual(result["step"], "unknown_tool")
 
 
 class Health(unittest.TestCase):
     def test_healthy(self):
         result = check()
-        self.assertTrue(result["ok"])
-        self.assertEqual(result["status"], "OK")
-        self.assertIs(result["synthetic"], True)
+        self.assertEqual(result["status"], "ok")
+        self.assertNotIn("ok", result)
         self.assertEqual(result["cases"], 1000)
         self.assertIsInstance(result["latency_ms"], int)
         self.assertEqual(result["summary"], "Virtual Lab is healthy: 1000 synthetic cases.")
 
     def test_401_is_auth_failed(self):
-        self.assertEqual(check(fetch_status=raising(http_error(401)))["error"], "auth_failed")
+        self.assertEqual(check(fetch_status=raising(http_error(401)))["step"], "auth_failed")
 
     def test_5xx_timeout_and_connection_are_unreachable(self):
         for error in (http_error(503), http_error(404), socket.timeout("slow"),
                       TimeoutError("slow"), urllib.error.URLError("refused")):
             with self.subTest(error=type(error).__name__):
-                self.assertEqual(check(fetch_status=raising(error))["error"], "unreachable")
+                self.assertEqual(check(fetch_status=raising(error))["step"], "unreachable")
 
     def test_bad_body_is_unhealthy(self):
         bodies = ["not json", "[]", "null",
@@ -82,18 +81,18 @@ class Health(unittest.TestCase):
                   json.dumps({"status": "OK", "synthetic": True})]
         for body in bodies:
             with self.subTest(body=body):
-                self.assertEqual(check(fetch_status=returning(body))["error"], "unhealthy")
+                self.assertEqual(check(fetch_status=returning(body))["step"], "unhealthy")
 
     def test_unfilled_secret_is_config_error(self):
         result = check(read_login=raising(tool.ConfigError("no value")))
-        self.assertFalse(result["ok"])
-        self.assertEqual(result["error"], "config_error")
+        self.assertEqual(result["status"], "error")
+        self.assertEqual(result["step"], "config_error")
 
     def test_invalid_secret_is_config_error(self):
         for value in ("not json", json.dumps({"username": "team"}), json.dumps(["x"])):
             with self.subTest(value=value):
                 result = check(read_login=lambda value=value: tool.parse_login(value))
-                self.assertEqual(result["error"], "config_error")
+                self.assertEqual(result["step"], "config_error")
 
     def test_password_never_appears(self):
         with self.assertLogs(level=logging.DEBUG) as logs:

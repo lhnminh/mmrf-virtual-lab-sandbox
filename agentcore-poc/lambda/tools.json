@@ -2,6 +2,9 @@
   {
     "name": "check_virtual_lab_health",
     "description": "Check whether the Virtual Lab is healthy, and report how many synthetic cases it holds. Takes no input.",
-    "properties": []
+    "inputSchema": {
+      "type": "object",
+      "properties": {}
+    }
   }
 ]
