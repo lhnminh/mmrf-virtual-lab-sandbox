@@ -17,7 +17,7 @@ export const spec = Object.freeze({
     additionalProperties: false,
   },
 });
-export const promptGuidance = 'For a lollipop plot, or where a gene\'s mutations fall on the protein, call show_lollipop. Chat cannot draw this plot yet, so give the numbers, say the plot can be opened from ProteinPaint in the Analysis Center, and never say a plot was shown.';
+export const promptGuidance = 'For a lollipop plot, or where a gene\'s mutations fall on the protein, call show_lollipop. An Open button under your answer shows the plot, so give the numbers and mention the button.';
 
 function region(gene) {
   if (!gene.chr || !Number.isFinite(gene.start) || !Number.isFinite(gene.stop)) throw new Error('The gene has no genomic region');
@@ -60,7 +60,7 @@ export function createExecutor({ fetchImpl }) {
     const listing = topVariants.map(item => `${item.change} (${item.count} samples)`).join(', ');
     return {
       summary: `${samples} samples in this synthetic cohort of ${cases} cases have a ${gene.name} mutation, across ${variants.length} variants. Most frequent: ${listing}.`,
-      plot: { type: 'lollipop', gene: gene.name, sampleCount: samples, variantCount: variants.length, topVariants,
+      plot: { type: 'lollipop', gene: gene.name, filter: cohortFilter, sampleCount: samples, variantCount: variants.length, topVariants,
         selectedCohort: { label: cohortLabel(cohortFilter), caseCount: cases } },
     };
   };

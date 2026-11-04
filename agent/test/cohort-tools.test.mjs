@@ -115,6 +115,7 @@ test('show_lollipop reports samples, variants and the most frequent, within the 
   // Chat treats plot.cohort as a saveable cohort, so this result must not set it.
   assert.equal(result.plot.cohort, undefined);
   assert.equal(result.plot.selectedCohort.caseCount, 334);
+  assert.deepEqual(result.plot.filter, filter);
   assert.deepEqual(lab.calls.find(call => call.path.endsWith('/mds3')).body.filter0, filter);
 });
 
