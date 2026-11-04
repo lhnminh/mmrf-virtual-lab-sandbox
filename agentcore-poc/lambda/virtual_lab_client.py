@@ -46,7 +46,13 @@ class VirtualLabClient:
         body = self._post("/guppy/graphql", {"query": query, "variables": {"f": cohort_filter}})
         if not isinstance(body, dict) or body.get("errors") or not isinstance(body.get("data"), dict):
             raise ClientError("unhealthy", "The Virtual Lab data query failed.")
-        return body["data"]["Case__aggregation"]["case"]
+        try:
+            node = body["data"]["Case__aggregation"]["case"]
+        except (KeyError, TypeError):
+            raise ClientError("unhealthy", "The Virtual Lab data response was incomplete.") from None
+        if not isinstance(node, dict):
+            raise ClientError("unhealthy", "The Virtual Lab data response was incomplete.")
+        return node
 
     def _paint(self, path, body, cohort_filter=None):
         payload = {**_GENOME, **body}
@@ -93,8 +99,11 @@ class VirtualLabClient:
 
     @staticmethod
     def _region(gene_info):
-        return [{"chr": gene_info["chr"], "start": gene_info["start"],
-                 "stop": gene_info["stop"], "width": 800}]
+        try:
+            return [{"chr": gene_info["chr"], "start": gene_info["start"],
+                     "stop": gene_info["stop"], "width": 800}]
+        except (KeyError, TypeError):
+            raise ClientError("unhealthy", "The gene has no genomic region.") from None
 
     def sample_ids(self, gene_info, cohort_filter):
         reply = self._paint("mds3", {"variant2samples": 1, "get": "samples",

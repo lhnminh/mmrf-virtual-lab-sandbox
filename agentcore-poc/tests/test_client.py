@@ -185,6 +185,26 @@ class Errors(unittest.TestCase):
             client.case_count(None)
         self.assertEqual(caught.exception.step, "unhealthy")
 
+    def test_malformed_data_is_unhealthy_for_every_guppy_call(self):
+        for reply in ({"data": {}}, {"data": {"Case__aggregation": None}},
+                      {"data": {"Case__aggregation": {}}}, {"data": {"Case__aggregation": {"case": None}}}):
+            for call in (lambda c: c.case_count(None), lambda c: c.field_values("demographic.race")):
+                with self.subTest(reply=reply):
+                    client, _ = make(reply)
+                    with self.assertRaises(ClientError) as caught:
+                        call(client)
+                    self.assertEqual(caught.exception.step, "unhealthy")
+
+    def test_gene_without_a_region_is_unhealthy(self):
+        for gene in ({"name": "KRAS"}, {"chr": "chr12", "start": 1}, {}):
+            for call in (lambda c, g: c.sample_ids(g, None), lambda c, g: c.lollipop_track(g, None)):
+                with self.subTest(gene=gene):
+                    client, opener = make({})
+                    with self.assertRaises(ClientError) as caught:
+                        call(client, gene)
+                    self.assertEqual(caught.exception.step, "unhealthy")
+                    self.assertEqual(opener.requests, [])
+
     def test_graphql_errors_are_unhealthy(self):
         client, _ = make({"errors": [{"message": "boom"}]})
         with self.assertRaises(ClientError) as caught:
