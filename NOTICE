@@ -13,6 +13,7 @@ the public ProteinPaint 2.216.0 bundle; its upstream license remains applicable.
 No code from the private theMMRF/ppmmrf repository is redistributed here.
 
 The ProteinPaint image downloads Molecular Signatures Database (MSigDB) 2023.2.Hs
-gene sets, Copyright Broad Institute and the Regents of the University of
-California, under CC BY 4.0, in the format St. Jude publishes for ProteinPaint.
+gene sets, Copyright Broad Institute, Inc., Massachusetts Institute of
+Technology, and Regents of the University of California, under CC BY 4.0, in
+the format St. Jude publishes for ProteinPaint.
 See https://www.gsea-msigdb.org/gsea/msigdb_license_terms.jsp.
