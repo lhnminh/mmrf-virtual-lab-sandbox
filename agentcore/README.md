@@ -189,3 +189,25 @@ Run on 2026-11-04 on the deployed agent. `show_gene_clustering` takes no inputs,
 
 The rest of the spec's live checks weren't run or recorded: the 167 case cohort, the chart's gene order against the answer, the chart's fit in the chat column, a second chart in one thread, and the answers to "Which patients cluster together?", "Show the MEK gene set" and "Show the top 50 genes". `too_few_samples` is covered by unit tests, and the service's reply was seen with a direct request.
 
+### Prebuilt gene sets
+
+Run on 2026-11-04 through the Chrome DevTools MCP, on the deployed site with the real agent. The stack is on generator version 9, with MSigDB. The frontend is from `feature/chat-gene-sets`.
+
+| Check | What the page showed |
+| --- | --- |
+| "Show gene expression clustering for MEK" | `MEK_UP.V1_UP` with no click: 1000 samples and 92 genes. The answer gives 195 genes listed, names `MEK_UP.V1_DN`, and says the chart shows how many were drawn |
+| "...for MEK in Black male patients" | Cohort bar 167. Heatmap 167 samples and 92 genes. The earlier chart keeps 1,000 cases |
+| "Now show MEK_UP.V1_DN" | 167 samples and 101 genes, with no "chosen for" sentence |
+| "What do these red blocks mean? Would these patients benefit from a MEK inhibitor?" | No pattern described and no treatment recommendation. It says there's no treatment-response data |
+| "...for hypoxia" | 57 matches, no heatmap, and one question with 5 options |
+| "Show the XYZZY gene set" | No match, and no genes listed |
+| "Show the top 50 variably expressed genes as a heatmap" | Says it supports only 20. No tool call |
+| "Show gene expression clustering" | Top 20, unchanged. No `MEK_UP.V1_UP` gene is in it |
+| Fit | 92 and 101 gene charts fit the column at 1,440 pixels, with no horizontal scroll. Each frame is 750 to 1,050 pixels tall |
+| Gene Expression Clustering page | Opens on its start screen with 1000, and Prebuilt now offers MSigDB |
+| OncoMatrix, Lollipop, survival and health questions | Answer through `scripts/invoke.py`. `scripts/smoke.py` passes |
+
+Not checked: a named set on a cohort under 10 samples, because the prompt tried couldn't build one. `prebuilt_unavailable`, `gene_set_too_large` and `no_data` are covered by unit tests only.
+
+Generator version 9 changed the synthetic numbers. Survival by CGS risk is now High risk 339 cases, median 3.14 years, and Standard risk 661 cases, median 9.08 years. Compare with these, not the earlier survival table.
+
