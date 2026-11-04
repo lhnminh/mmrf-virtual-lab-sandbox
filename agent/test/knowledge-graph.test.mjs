@@ -18,6 +18,7 @@ test('client signs an MCP tool call and returns the envelope', async () => {
     return reply({ isError: false, content: [{ type: 'text', text: JSON.stringify(envelope) }] });
   } });
   assert.deepEqual(await callTool('kg_search_entities', { text: 'myeloma' }), envelope);
+  assert.equal(calls[0].init.headers['mcp-protocol-version'], '2025-06-18');
   const body = JSON.parse(calls[0].init.body);
   assert.equal(body.method, 'tools/call');
   assert.deepEqual(body.params, { name: 'kg-graph___kg_search_entities', arguments: { text: 'myeloma' } });
