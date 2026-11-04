@@ -38,6 +38,12 @@ variable "model_id" {
   default     = "us.anthropic.claude-haiku-5-5"
 }
 
+variable "lambda_memory_mb" {
+  description = "Memory for the tool Lambda."
+  type        = number
+  default     = 512
+}
+
 variable "agent_zip_path" {
   description = "Agent package built by scripts/build_agent.sh."
   type        = string
