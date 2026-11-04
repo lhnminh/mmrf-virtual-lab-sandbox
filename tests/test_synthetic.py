@@ -214,6 +214,35 @@ class SyntheticIntegrity(unittest.TestCase):
                 if f['data_format'] == 'BAM':
                     self.assertTrue(gzip.decompress(payload).startswith(b'BAM\x01'))
 
+    def test_mek_program_adds_active_blocks_without_changing_other_genes(self):
+        with tempfile.TemporaryDirectory() as out, tempfile.TemporaryDirectory() as plain:
+            cases, _, variants = generator.generate(out)
+            with patch.object(generator, 'mek_program', lambda symbols, cases, *_: [{} for _ in cases]):
+                generator.generate(plain)
+            _, _, counts = read_counts(out)
+            _, _, without = read_counts(plain)
+            members = {}
+            for line in generator.MEK_SIGNATURES.read_text().splitlines()[1:]:
+                gene_set, symbol = line.split('\t')
+                members.setdefault(gene_set, set()).add(symbol)
+            named = set(generator.NAMED_EXPRESSION_GENES) | set(generator.EXPRESSION_GENES)
+            changed = {gene for gene in counts if counts[gene] != without[gene]}
+            self.assertEqual(changed, (members['MEK_UP.V1_UP'] | members['MEK_UP.V1_DN']) & set(counts) - named)
+
+            symbols = list(counts)
+            program = generator.mek_program(symbols, cases, variants, 42)
+            active = [max(map(abs, sample.values())) > 1.5 for sample in program]
+            self.assertTrue(.06 <= statistics.mean(active) <= .15, statistics.mean(active))
+            cpm = log_cpm(counts)
+
+            def shift(gene_set):
+                genes = members[gene_set] & changed
+                score = [statistics.mean(cpm[g][i] for g in genes) for i in range(len(cases))]
+                return (statistics.mean(s for s, a in zip(score, active) if a) -
+                        statistics.mean(s for s, a in zip(score, active) if not a))
+            self.assertGreater(shift('MEK_UP.V1_UP'), .6)
+            self.assertLess(shift('MEK_UP.V1_DN'), -.5)
+
     def test_demographic_groups_support_survival_and_gene_comparisons(self):
         with tempfile.TemporaryDirectory() as out:
             cases, files, variants = generator.generate(out)
