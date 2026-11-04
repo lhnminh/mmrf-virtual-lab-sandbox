@@ -46,7 +46,7 @@ def show_oncomatrix(args, client):
     plot = {"type": "oncomatrix"}
     if max_genes:
         plot["maxGenes"] = max_genes
-    listing = ", ".join(f"{g['gene']} ({g['count']})" for g in genes)
+    listing = ", ".join(f"{g['gene']} ({g['count']} samples)" for g in genes)
     return ok(f"{case_count} cases, {len(samples)} samples with mutation data. "
               f"{listing} are the most frequently mutated.",
               genes=genes, caseCount=case_count, sampleCount=len(samples), cohort=cohort, plot=plot)

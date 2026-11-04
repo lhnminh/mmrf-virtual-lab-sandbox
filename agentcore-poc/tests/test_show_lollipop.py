@@ -1,4 +1,5 @@
 """show_lollipop tests, with a fake Virtual Lab client."""
+import io
 import json
 import pathlib
 import sys
@@ -6,11 +7,16 @@ import unittest
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1] / "lambda"))
 from tool_show_lollipop import show_lollipop  # noqa: E402
-from virtual_lab_client import ClientError  # noqa: E402
+from virtual_lab_client import ClientError, VirtualLabClient  # noqa: E402
 
 RACE_BLACK = {"and": [{"in": {"demographic.race": ["black or african american"]}}]}
 COVERED = [("KRAS", 148), ("NRAS", 113), ("TP53", 60), ("BRAF", 40), ("DIS3", 100), ("MYC", 30)]
 GENES = {"kras": {"name": "KRAS"}, "c-myc": {"name": "MYC"}}
+LAB_GENE = {"name": "KRAS", "chr": "chr12", "start": 25205245, "stop": 25250929}
+
+# ProteinPaint's real mds3 reply when no sample in the cohort has a mutation in the gene.
+# It has no sampleTotalNumber. Captured from the local stack; deployed fails the same way.
+NO_MATCH_TRACK = {"variantAlerts": [], "skewer": [], "cnv": {"cnvs": []}, "mclass2variantcount": []}
 
 
 def skewer():
@@ -42,6 +48,29 @@ class FakeClient:
 
     def lollipop_track(self, gene_info, cohort_filter):
         return {"sampleTotalNumber": self.samples, "skewer": skewer() if self.samples else []}
+
+
+class ReplyOpener:
+    def __init__(self, reply):
+        self.reply = reply
+
+    def open(self, request, timeout=None):
+        return io.BytesIO(json.dumps(self.reply).encode())
+
+
+class TrackClient(FakeClient):
+    """Sends a raw mds3 reply through the real client's lollipop_track."""
+
+    def __init__(self, reply):
+        super().__init__()
+        self.lab = VirtualLabClient("https://lab.example", {"username": "u", "password": "p"},
+                                    opener=ReplyOpener(reply))
+
+    def lookup_gene(self, name):
+        return LAB_GENE
+
+    def lollipop_track(self, gene_info, cohort_filter):
+        return self.lab.lollipop_track(gene_info, cohort_filter)
 
 
 def run(gene="KRAS", client=None, **extra):
@@ -94,6 +123,39 @@ class ShowLollipop(unittest.TestCase):
         self.assertEqual(r["status"], "none_in_cohort")
         self.assertEqual(r["summary"], "0 of 334 cases in this cohort have a KRAS mutation.")
         self.assertNotIn("plot", r)
+
+    def test_live_reply_with_no_matching_sample_is_none_in_cohort(self):
+        r = run(client=TrackClient(NO_MATCH_TRACK))
+        self.assertEqual(r["status"], "none_in_cohort")
+        self.assertEqual(r["summary"], "0 of 334 cases in this cohort have a KRAS mutation.")
+        self.assertEqual(r["cohort"], {"label": "Race: black or african american", "caseCount": 334})
+        self.assertNotIn("plot", r)
+
+    def test_an_explicit_zero_with_no_variants_is_none_in_cohort(self):
+        r = run(client=TrackClient({"sampleTotalNumber": 0, "skewer": []}))
+        self.assertEqual(r["status"], "none_in_cohort")
+
+    def test_a_real_track_still_reports_its_samples(self):
+        track = {"sampleTotalNumber": 2, "skewer": [{"mname": "p.G12D", "occurrence": 2}]}
+        r = run(client=TrackClient(track))
+        self.assertEqual((r["status"], r["sampleCount"]), ("ok", 2))
+
+    def test_any_other_malformed_track_is_an_error(self):
+        variant = {"mname": "p.G12D", "occurrence": 2}
+        for name, reply in (("variants without a total", {"skewer": [variant]}),
+                            ("no skewer or total", {"variantAlerts": []}),
+                            ("no skewer, zero total", {"sampleTotalNumber": 0}),
+                            ("skewer isn't a list", {"skewer": {}}),
+                            ("null skewer", {"skewer": None}),
+                            ("null total", {"sampleTotalNumber": None, "skewer": []}),
+                            ("text total", {"sampleTotalNumber": "2", "skewer": [variant]}),
+                            ("true total", {"sampleTotalNumber": True, "skewer": [variant]}),
+                            ("negative total", {"sampleTotalNumber": -1, "skewer": [variant]}),
+                            ("zero total with variants", {"sampleTotalNumber": 0, "skewer": [variant]}),
+                            ("samples without variants", {"sampleTotalNumber": 2, "skewer": []})):
+            with self.subTest(name):
+                r = run(client=TrackClient(reply))
+                self.assertEqual((r["status"], r["step"]), ("error", "unhealthy"))
 
     def test_no_cohort_means_all_cases(self):
         r = show_lollipop({"gene": "KRAS"}, FakeClient())

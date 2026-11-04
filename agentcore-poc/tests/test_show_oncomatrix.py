@@ -113,8 +113,11 @@ class ShowOncomatrix(unittest.TestCase):
             self.assertIn(str(n), r["summary"])
         self.assertEqual(
             r["summary"],
-            "334 cases, 6 samples with mutation data. KRAS (148), NRAS (113), DIS3 (100), TP53 (60) "
-            "are the most frequently mutated.")
+            "334 cases, 6 samples with mutation data. KRAS (148 samples), NRAS (113 samples), "
+            "DIS3 (100 samples), TP53 (60 samples) are the most frequently mutated.")
+
+    def test_gene_counts_use_the_same_unit_as_show_lollipop(self):
+        self.assertIn("KRAS (148 samples)", run()["summary"])
 
     def test_registered_with_the_handler(self):
         import handler

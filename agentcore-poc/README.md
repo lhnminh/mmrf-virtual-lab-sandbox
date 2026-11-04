@@ -110,8 +110,11 @@ Run on 2026-11-03 against the deployed agent. Streams are in `tests/fixtures/`. 
 | Lollipop follow-up in the same thread | Uses the new cohort without changing it |
 | `ambiguous`, `unknown_field`, `no_data_for_gene` | Each reported as a result. The cohort stays unchanged |
 | Tool failure | Reported as a failure, with no guessed result. Recorded by sending a malformed `state.cohort` filter, so `tool-failure.sse` holds that filter in its `STATE_SNAPSHOT` |
-| `check_numbers` | Unsupported numbers in the `ambiguous` answer: its case count from state, and "1" and "2" from a numbered list. The other saved streams have none |
+| `check_numbers` | No unsupported numbers in any saved stream. It counts the state's case count as a source and ignores list markers at a line start. The first run flagged the `ambiguous` answer for both |
+| `none-in-cohort.sse` | **Hand-edited** until re-recorded after the next deploy. It's a real run's stream with the tool result and answer rewritten. Its thread ID says so |
 
-**Known failure:** `none_in_cohort` doesn't work yet. ProteinPaint omits `sampleTotalNumber` when no sample in the cohort has a mutation in the gene, so `show_lollipop` returns `status: error` instead. There's no `none-in-cohort.sse` until this is fixed and deployed.
+**Found broken, fixed in code, pending deploy:** `none_in_cohort` failed live. ProteinPaint omits `sampleTotalNumber` when no sample in the cohort has a mutation in the gene, so the deployed `show_lollipop` returns `status: error`. The code now treats that reply as 0 samples, and any other malformed track stays an error. This passes the unit tests and against the local stack, but hasn't run on the deployed agent.
+
+**Also pending deploy:** `show_oncomatrix`'s summary now gives gene counts in samples, such as "KRAS (148 samples)", and the system prompt says to keep the summary's unit. The saved streams, including `journey-oncomatrix.sse`, hold the earlier wording until they're re-recorded.
 
 `terraform destroy` hasn't been run.

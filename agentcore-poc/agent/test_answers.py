@@ -1,10 +1,12 @@
-"""Checks a recorded answer quotes only numbers from tool summaries. Task 8 runs check_numbers
-against saved streams; the tests here cover the check itself."""
+"""Checks a recorded answer quotes only numbers from tool summaries or the selected cohort's
+case count. Task 8 runs check_numbers against saved streams; the tests here cover the check itself."""
 import re
 import unittest
 
 # A number on its own. The digits inside TP53, p.G12V or c.35G>A are names, not numbers.
 _NUMBER = re.compile(r"(?<![A-Za-z0-9_.])(?<![A-Za-z]-)\d+(?:,\d{3})*(?:\.\d+)?(?![A-Za-z0-9_])")
+# "1. " or "2) " starting a line numbers a list. It isn't a value the answer reports.
+_LIST_MARKER = re.compile(r"^[ \t]*\d{1,3}[.)][ \t]+", re.MULTILINE)
 
 
 def _numbers(text: str) -> list[str]:
@@ -16,10 +18,11 @@ def _value(number: str) -> str:
 
 
 def check_numbers(answer: str, summaries: list[str]) -> list[str]:
-    """Numbers in the answer, as written, that aren't in any summary."""
+    """Numbers in the answer, as written, that aren't in any summary. The model may also quote
+    state.cohort's caseCount, so callers add that to summaries."""
     allowed = {_value(number) for summary in summaries for number in _numbers(summary)}
     missing = []
-    for number in _numbers(answer):
+    for number in _numbers(_LIST_MARKER.sub("", answer)):
         if _value(number) not in allowed and number not in missing:
             missing.append(number)
     return missing
@@ -56,6 +59,25 @@ class CheckNumbers(unittest.TestCase):
 
     def test_repeats_are_returned_once(self):
         self.assertEqual(check_numbers("7 and 7", []), ["7"])
+
+    def test_state_case_count_is_allowed_through_summaries(self):
+        answer = "The cohort is still All cases (1000 cases)."
+        summary = "'Hispanic' could mean more than one Ethnicity value."
+        self.assertEqual(check_numbers(answer, [summary]), ["1000"])
+        self.assertEqual(check_numbers(answer, [summary, "1000"]), [])
+
+    def test_list_markers_at_a_line_start_are_not_numbers(self):
+        answer = "Which value?\n1. hispanic or latino\n  2. not hispanic or latino\n3) other"
+        self.assertEqual(check_numbers(answer, []), [])
+
+    def test_a_marker_is_only_at_a_line_start(self):
+        self.assertEqual(check_numbers("Total 5. Then more.", []), ["5"])
+
+    def test_a_number_starting_a_line_is_still_checked(self):
+        for answer, expected in (("148 samples", ["148"]), ("12.5 percent", ["12.5"]), ("148.", ["148"]),
+                                 ("1,000. cases", ["1,000"])):
+            with self.subTest(answer=answer):
+                self.assertEqual(check_numbers(answer, []), expected)
 
     def test_no_numbers(self):
         self.assertEqual(check_numbers("No numbers here.", []), [])

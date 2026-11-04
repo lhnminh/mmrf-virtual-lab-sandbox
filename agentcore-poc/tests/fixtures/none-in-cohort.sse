@@ -1,0 +1,88 @@
+data: {"type": "RUN_STARTED", "threadId": "hand-edited-none-in-cohort", "runId": "3d8a673a-1cbd-4b89-b3f1-d52bede247d2", "protocolVersion": "1.0"}
+
+data: {"type": "STATE_SNAPSHOT", "snapshot": {"cohort": {"filter": {"and": [{"in": {"demographic.race": ["white"]}}, {"in": {"demographic.gender": ["male"]}}, {"in": {"demographic.vital_status": ["Alive"]}}, {"in": {"cgs_risk_key_criteria.cgs_risk_category": ["High risk"]}}]}, "label": "Race: white; Sex: male; Vital Status: Alive; CGS Risk Category: High risk", "caseCount": 6, "revision": 1, "changedOutsideChat": false}}}
+
+data: {"type": "MESSAGES_SNAPSHOT", "messages": [{"id": "ac2b6488-b03a-49a1-af0f-5d03d583dbaf", "role": "user", "content": "Show a lollipop plot for DIS3."}]}
+
+data: {"type": "REASONING_START", "messageId": "67f90520-b4de-45ee-866a-b9606f8584fc"}
+
+data: {"type": "REASONING_MESSAGE_START", "messageId": "67f90520-b4de-45ee-866a-b9606f8584fc", "role": "reasoning"}
+
+data: {"type": "REASONING_MESSAGE_END", "messageId": "67f90520-b4de-45ee-866a-b9606f8584fc"}
+
+data: {"type": "REASONING_END", "messageId": "67f90520-b4de-45ee-866a-b9606f8584fc"}
+
+data: {"type": "TEXT_MESSAGE_START", "messageId": "8342a20a-fc74-40c4-8b5c-a5580f49afaf", "role": "assistant"}
+
+data: {"type": "TEXT_MESSAGE_CONTENT", "messageId": "8342a20a-fc74-40c4-8b5c-a5580f49afaf", "delta": "Plan:"}
+
+data: {"type": "TEXT_MESSAGE_CONTENT", "messageId": "8342a20a-fc74-40c4-8b5c-a5580f49afaf", "delta": " call the lollipop tool"}
+
+data: {"type": "TEXT_MESSAGE_CONTENT", "messageId": "8342a20a-fc74-40c4-8b5c-a5580f49afaf", "delta": " for DIS3 on"}
+
+data: {"type": "TEXT_MESSAGE_CONTENT", "messageId": "8342a20a-fc74-40c4-8b5c-a5580f49afaf", "delta": " the current cohort,"}
+
+data: {"type": "TEXT_MESSAGE_CONTENT", "messageId": "8342a20a-fc74-40c4-8b5c-a5580f49afaf", "delta": " then"}
+
+data: {"type": "TEXT_MESSAGE_CONTENT", "messageId": "8342a20a-fc74-40c4-8b5c-a5580f49afaf", "delta": " report its"}
+
+data: {"type": "TEXT_MESSAGE_CONTENT", "messageId": "8342a20a-fc74-40c4-8b5c-a5580f49afaf", "delta": " results."}
+
+data: {"type": "TEXT_MESSAGE_END", "messageId": "8342a20a-fc74-40c4-8b5c-a5580f49afaf"}
+
+data: {"type": "MESSAGES_SNAPSHOT", "messages": [{"id": "ac2b6488-b03a-49a1-af0f-5d03d583dbaf", "role": "user", "content": "Show a lollipop plot for DIS3."}, {"id": "8342a20a-fc74-40c4-8b5c-a5580f49afaf", "role": "assistant", "content": "Plan: call the lollipop tool for DIS3 on the current cohort, then report its results."}]}
+
+data: {"type": "TOOL_CALL_START", "toolCallId": "tooluse_7yQvdo1E5pjnmhgqTTR1LP", "toolCallName": "virtual-lab___show_lollipop", "parentMessageId": "8fb92903-fa3a-4301-977f-fa129eef1f23"}
+
+data: {"type": "TOOL_CALL_ARGS", "toolCallId": "tooluse_7yQvdo1E5pjnmhgqTTR1LP", "delta": "{\"gene\": \"DI"}
+
+data: {"type": "TOOL_CALL_ARGS", "toolCallId": "tooluse_7yQvdo1E5pjnmhgqTTR1LP", "delta": "S3\"}"}
+
+data: {"type": "TOOL_CALL_END", "toolCallId": "tooluse_7yQvdo1E5pjnmhgqTTR1LP"}
+
+data: {"type": "MESSAGES_SNAPSHOT", "messages": [{"id": "ac2b6488-b03a-49a1-af0f-5d03d583dbaf", "role": "user", "content": "Show a lollipop plot for DIS3."}, {"id": "8342a20a-fc74-40c4-8b5c-a5580f49afaf", "role": "assistant", "content": "Plan: call the lollipop tool for DIS3 on the current cohort, then report its results."}, {"id": "8fb92903-fa3a-4301-977f-fa129eef1f23", "role": "assistant", "content": "", "toolCalls": [{"id": "tooluse_7yQvdo1E5pjnmhgqTTR1LP", "type": "function", "function": {"name": "virtual-lab___show_lollipop", "arguments": "{\"gene\":\"DIS3\"}"}}]}]}
+
+data: {"type": "RAW", "event": {"event": {"metadata": {"usage": {"inputTokens": 1986, "outputTokens": 133, "totalTokens": 2119}, "metrics": {"latencyMs": 1187}}}}, "source": "strands"}
+
+data: {"type": "TOOL_CALL_RESULT", "messageId": "d3adddfa-b47d-4eec-9727-94b04919a93e", "toolCallId": "tooluse_7yQvdo1E5pjnmhgqTTR1LP", "content": "{\"status\":\"none_in_cohort\",\"summary\":\"0 of 6 cases in this cohort have a DIS3 mutation.\",\"gene\":\"DIS3\",\"cohort\":{\"label\":\"Race: white; Sex: male; Vital Status: Alive; CGS Risk Category: High risk\",\"caseCount\":6,\"revision\":1}}"}
+
+data: {"type": "MESSAGES_SNAPSHOT", "messages": [{"id": "ac2b6488-b03a-49a1-af0f-5d03d583dbaf", "role": "user", "content": "Show a lollipop plot for DIS3."}, {"id": "8342a20a-fc74-40c4-8b5c-a5580f49afaf", "role": "assistant", "content": "Plan: call the lollipop tool for DIS3 on the current cohort, then report its results."}, {"id": "8fb92903-fa3a-4301-977f-fa129eef1f23", "role": "assistant", "content": "", "toolCalls": [{"id": "tooluse_7yQvdo1E5pjnmhgqTTR1LP", "type": "function", "function": {"name": "virtual-lab___show_lollipop", "arguments": "{\"gene\":\"DIS3\"}"}}]}, {"id": "d3adddfa-b47d-4eec-9727-94b04919a93e", "role": "tool", "content": "{\"status\":\"none_in_cohort\",\"summary\":\"0 of 6 cases in this cohort have a DIS3 mutation.\",\"gene\":\"DIS3\",\"cohort\":{\"label\":\"Race: white; Sex: male; Vital Status: Alive; CGS Risk Category: High risk\",\"caseCount\":6,\"revision\":1}}", "toolCallId": "tooluse_7yQvdo1E5pjnmhgqTTR1LP"}]}
+
+data: {"type": "REASONING_START", "messageId": "eb9833c0-e7b3-4ab9-b788-8cc01f9e438d"}
+
+data: {"type": "REASONING_MESSAGE_START", "messageId": "eb9833c0-e7b3-4ab9-b788-8cc01f9e438d", "role": "reasoning"}
+
+data: {"type": "REASONING_MESSAGE_END", "messageId": "eb9833c0-e7b3-4ab9-b788-8cc01f9e438d"}
+
+data: {"type": "REASONING_END", "messageId": "eb9833c0-e7b3-4ab9-b788-8cc01f9e438d"}
+
+data: {"type": "TEXT_MESSAGE_START", "messageId": "159bc119-05df-48e3-afc5-0f55ec04aa7b", "role": "assistant"}
+
+data: {"type": "TEXT_MESSAGE_CONTENT", "messageId": "159bc119-05df-48e3-afc5-0f55ec04aa7b", "delta": "**Observed:** 0 of 6 "}
+
+data: {"type": "TEXT_MESSAGE_CONTENT", "messageId": "159bc119-05df-48e3-afc5-0f55ec04aa7b", "delta": "cases in this cohort "}
+
+data: {"type": "TEXT_MESSAGE_CONTENT", "messageId": "159bc119-05df-48e3-afc5-0f55ec04aa7b", "delta": "have a DIS3 mutation.\n\n**Limits:** "}
+
+data: {"type": "TEXT_MESSAGE_CONTENT", "messageId": "159bc119-05df-48e3-afc5-0f55ec04aa7b", "delta": "The data is synthetic "}
+
+data: {"type": "TEXT_MESSAGE_CONTENT", "messageId": "159bc119-05df-48e3-afc5-0f55ec04aa7b", "delta": "and has no clinical "}
+
+data: {"type": "TEXT_MESSAGE_CONTENT", "messageId": "159bc119-05df-48e3-afc5-0f55ec04aa7b", "delta": "meaning. Numbers are for "}
+
+data: {"type": "TEXT_MESSAGE_CONTENT", "messageId": "159bc119-05df-48e3-afc5-0f55ec04aa7b", "delta": "the default view and "}
+
+data: {"type": "TEXT_MESSAGE_CONTENT", "messageId": "159bc119-05df-48e3-afc5-0f55ec04aa7b", "delta": "don't reflect changes made "}
+
+data: {"type": "TEXT_MESSAGE_CONTENT", "messageId": "159bc119-05df-48e3-afc5-0f55ec04aa7b", "delta": "in the chart."}
+
+data: {"type": "RAW", "event": {"event": {"metadata": {"usage": {"inputTokens": 2158, "outputTokens": 269, "totalTokens": 2427}, "metrics": {"latencyMs": 2290}}}}, "source": "strands"}
+
+data: {"type": "TEXT_MESSAGE_END", "messageId": "159bc119-05df-48e3-afc5-0f55ec04aa7b"}
+
+data: {"type": "MESSAGES_SNAPSHOT", "messages": [{"id": "ac2b6488-b03a-49a1-af0f-5d03d583dbaf", "role": "user", "content": "Show a lollipop plot for DIS3."}, {"id": "8342a20a-fc74-40c4-8b5c-a5580f49afaf", "role": "assistant", "content": "Plan: call the lollipop tool for DIS3 on the current cohort, then report its results."}, {"id": "8fb92903-fa3a-4301-977f-fa129eef1f23", "role": "assistant", "content": "", "toolCalls": [{"id": "tooluse_7yQvdo1E5pjnmhgqTTR1LP", "type": "function", "function": {"name": "virtual-lab___show_lollipop", "arguments": "{\"gene\":\"DIS3\"}"}}]}, {"id": "d3adddfa-b47d-4eec-9727-94b04919a93e", "role": "tool", "content": "{\"status\":\"none_in_cohort\",\"summary\":\"0 of 6 cases in this cohort have a DIS3 mutation.\",\"gene\":\"DIS3\",\"cohort\":{\"label\":\"Race: white; Sex: male; Vital Status: Alive; CGS Risk Category: High risk\",\"caseCount\":6,\"revision\":1}}", "toolCallId": "tooluse_7yQvdo1E5pjnmhgqTTR1LP"}, {"id": "159bc119-05df-48e3-afc5-0f55ec04aa7b", "role": "assistant", "content": "**Observed:** 0 of 6 cases in this cohort have a DIS3 mutation.\n\n**Limits:** The data is synthetic and has no clinical meaning. Numbers are for the default view and don't reflect changes made in the chart."}]}
+
+data: {"type": "STATE_SNAPSHOT", "snapshot": {"cohort": {"filter": {"and": [{"in": {"demographic.race": ["white"]}}, {"in": {"demographic.gender": ["male"]}}, {"in": {"demographic.vital_status": ["Alive"]}}, {"in": {"cgs_risk_key_criteria.cgs_risk_category": ["High risk"]}}]}, "label": "Race: white; Sex: male; Vital Status: Alive; CGS Risk Category: High risk", "caseCount": 6, "revision": 1, "changedOutsideChat": false}}}
+
+data: {"type": "RUN_FINISHED", "threadId": "hand-edited-none-in-cohort", "runId": "3d8a673a-1cbd-4b89-b3f1-d52bede247d2", "outcome": {"type": "success"}, "usage": [{"provider": "bedrock", "model": "us.anthropic.claude-haiku-5-5", "inputTokens": 4144, "outputTokens": 402, "totalTokens": 4546}]}
+

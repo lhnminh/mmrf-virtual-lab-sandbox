@@ -70,6 +70,12 @@ class SystemPrompt(unittest.TestCase):
             with self.subTest(words=words):
                 self.assertIn(words, main.SYSTEM_PROMPT)
 
+    def test_numbers_keep_the_summary_unit(self):
+        self.assertIn("with the unit the summary gives it", main.SYSTEM_PROMPT)
+
+    def test_selected_cohort_case_count_is_the_one_outside_number(self):
+        self.assertIn("selected cohort's case count", main.SYSTEM_PROMPT)
+
     def test_does_not_mention_a_filter(self):
         self.assertNotIn("filter", main.SYSTEM_PROMPT.lower())
 

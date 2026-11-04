@@ -116,6 +116,10 @@ class VirtualLabClient:
     def lollipop_track(self, gene_info, cohort_filter):
         reply = self._paint("mds3", {"forTrack": 1, "skewer": 1,
                                      "rglst": self._region(gene_info)}, cohort_filter)
-        if "sampleTotalNumber" not in reply or not isinstance(reply.get("skewer"), list):
+        variants = reply.get("skewer")
+        # ProteinPaint omits the total when no sample in the cohort has a mutation in the gene.
+        total = reply.get("sampleTotalNumber", 0 if variants == [] else None)
+        if (not isinstance(variants, list) or type(total) is not int or total < 0
+                or (total == 0) != (not variants)):
             raise ClientError("unhealthy", "The lollipop data was missing.")
-        return {"sampleTotalNumber": reply["sampleTotalNumber"], "skewer": reply["skewer"]}
+        return {"sampleTotalNumber": total, "skewer": variants}
