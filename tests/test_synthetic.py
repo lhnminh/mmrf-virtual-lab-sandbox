@@ -217,7 +217,7 @@ class SyntheticIntegrity(unittest.TestCase):
     def test_mek_program_adds_active_blocks_without_changing_other_genes(self):
         with tempfile.TemporaryDirectory() as out, tempfile.TemporaryDirectory() as plain:
             cases, _, variants = generator.generate(out)
-            with patch.object(generator, 'mek_program', lambda symbols, cases, *_: [{} for _ in cases]):
+            with patch.object(generator, 'mek_program', lambda symbols, cases, *_: ([], [{} for _ in cases])):
                 generator.generate(plain)
             _, _, counts = read_counts(out)
             _, _, without = read_counts(plain)
@@ -230,18 +230,22 @@ class SyntheticIntegrity(unittest.TestCase):
             self.assertEqual(changed, (members['MEK_UP.V1_UP'] | members['MEK_UP.V1_DN']) & set(counts) - named)
 
             symbols = list(counts)
-            program = generator.mek_program(symbols, cases, variants, 42)
-            active = [max(map(abs, sample.values())) > 1.5 for sample in program]
-            self.assertTrue(.06 <= statistics.mean(active) <= .15, statistics.mean(active))
+            states, _ = generator.mek_program(list(counts), cases, variants, 42)
+            for state, low, high in (('active', .06, .15), ('suppressed', .05, .11)):
+                self.assertTrue(low <= states.count(state) / len(cases) <= high, (state, states.count(state)))
             cpm = log_cpm(counts)
 
-            def shift(gene_set):
+            def shift(gene_set, state):
+                """Mean log CPM of the set in samples of this state minus neutral samples."""
                 genes = members[gene_set] & changed
                 score = [statistics.mean(cpm[g][i] for g in genes) for i in range(len(cases))]
-                return (statistics.mean(s for s, a in zip(score, active) if a) -
-                        statistics.mean(s for s, a in zip(score, active) if not a))
-            self.assertGreater(shift('MEK_UP.V1_UP'), .6)
-            self.assertLess(shift('MEK_UP.V1_DN'), -.5)
+                return (statistics.mean(s for s, x in zip(score, states) if x == state) -
+                        statistics.mean(s for s, x in zip(score, states) if x == 'neutral'))
+            # Each set has its own raised block and is lowered in the opposite state.
+            self.assertGreater(shift('MEK_UP.V1_UP', 'active'), .6)
+            self.assertGreater(shift('MEK_UP.V1_DN', 'suppressed'), .6)
+            self.assertLess(shift('MEK_UP.V1_DN', 'active'), -.5)
+            self.assertLess(shift('MEK_UP.V1_UP', 'suppressed'), -.3)
 
     def test_demographic_groups_support_survival_and_gene_comparisons(self):
         with tempfile.TemporaryDirectory() as out:

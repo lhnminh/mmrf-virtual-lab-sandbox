@@ -138,7 +138,9 @@ NAMED_EXPRESSION_GENES = tuple(dict.fromkeys(
 # MSigDB MEK_UP.V1_UP / MEK_UP.V1_DN members (CC BY 4.0); see docs/synthetic-data.md.
 MEK_SIGNATURES = Path(__file__).with_name('mek-signatures.tsv')
 # MAPK-active samples: more common with a RAS/RAF mutation, as in myeloma.
+# MAPK-suppressed samples (the rest) de-repress MEK_UP.V1_DN instead.
 MEK_ACTIVE_RATE = {'mutated': .12, 'other': .05}
+MEK_SUPPRESSED_RATE = .08
 MAPK_GENES = {'KRAS', 'NRAS', 'BRAF'}
 REFERENCE_LENGTH = 500000
 CODONS = {
@@ -299,11 +301,12 @@ def present_markers(case):
 
 
 def mek_program(symbols, cases, variants, seed):
-    """Return per-sample {gene index: log2 shift} for the MEK signature genes.
+    """Return per-sample MEK states and {gene index: log2 shift} for the signature genes.
 
-    A minority of samples is MAPK-active. Each active sample raises MEK_UP.V1_UP
-    genes strongly, led by one of three gene modules, and lowers MEK_UP.V1_DN
-    genes. Other samples vary mildly together. Named genes are left to their own
+    A minority of samples is MAPK-active: each raises MEK_UP.V1_UP genes strongly,
+    led by one of three gene modules, and lowers MEK_UP.V1_DN genes. Another
+    minority is MAPK-suppressed: the mirror image, with MEK_UP.V1_DN modules
+    raised. Other samples vary mildly together. Named genes are left to their own
     programs. The separate random stream leaves every other draw unchanged.
     """
     rng = random.Random(seed + 5101)
@@ -314,26 +317,35 @@ def mek_program(symbols, cases, variants, seed):
         gene_set, symbol = line.split('\t')
         if symbol in where and symbol not in named:
             members[gene_set].append(where[symbol])
-    up = members['MEK_UP.V1_UP']
-    rng.shuffle(up)
-    modules = [up[:len(up) * 4 // 9], up[len(up) * 4 // 9:len(up) * 7 // 9], up[len(up) * 7 // 9:]]
-    up_loads = [[(index, rng.uniform(.6, 1.2)) for index in module] for module in modules]
-    down_loads = [(index, rng.uniform(.3, .7)) for index in members['MEK_UP.V1_DN']]
+    def modules(genes):
+        """Three modules of unequal size, each gene with its own load."""
+        rng.shuffle(genes)
+        cuts = (0, len(genes) * 4 // 9, len(genes) * 7 // 9, len(genes))
+        return [[(index, rng.uniform(.6, 1.2)) for index in genes[a:b]] for a, b in zip(cuts, cuts[1:])]
+
+    def led_weights():
+        weights = [rng.uniform(0, .5) for _ in range(3)]
+        weights[rng.randrange(3)] = 1
+        return weights
+
+    up, down = modules(members['MEK_UP.V1_UP']), modules(members['MEK_UP.V1_DN'])
     mutated = {v['case_id'] for v in variants if v['symbol'] in MAPK_GENES}
-    shifts = []
+    states, shifts = [], []
     for case in cases:
         rate = MEK_ACTIVE_RATE['mutated' if case['case_id'] in mutated else 'other']
         background = rng.gauss(0, .25)
-        amplitude, weights = 0, [0, 0, 0]
-        if rng.random() < rate:
-            amplitude = rng.uniform(1.8, 3.2)
-            weights = [rng.uniform(0, .5) for _ in modules]
-            weights[rng.randrange(len(modules))] = 1
-        sample = {index: load * (background + amplitude * weight)
-                  for loads, weight in zip(up_loads, weights) for index, load in loads}
-        sample.update((index, -load * (background + .6 * amplitude)) for index, load in down_loads)
+        amplitude = rng.uniform(1.8, 3.2)
+        draw = rng.random()
+        state = 'active' if draw < rate else 'suppressed' if draw < rate + MEK_SUPPRESSED_RATE else 'neutral'
+        up_weights = led_weights() if state == 'active' else [-.4] * 3 if state == 'suppressed' else [0] * 3
+        down_weights = led_weights() if state == 'suppressed' else [-.6] * 3 if state == 'active' else [0] * 3
+        sample = {}
+        for loads, sign, weights in ((up, 1, up_weights), (down, -1, down_weights)):
+            for module, weight in zip(loads, weights):
+                sample.update((index, load * (sign * background + amplitude * weight)) for index, load in module)
+        states.append(state)
         shifts.append(sample)
-    return shifts
+    return states, shifts
 
 
 def make_expression(out, cases, variants, seed):
@@ -398,7 +410,7 @@ def make_expression(out, cases, variants, seed):
     mek_rng = random.Random(seed + 5102)
 
     counts = []
-    for case, mek in zip(cases, mek_program(symbols, cases, variants, seed)):
+    for case, mek in zip(cases, mek_program(symbols, cases, variants, seed)[1]):
         markers = present_markers(case)
         module = rng.choices([0, 1, 2, 3], weights=[52, 27, 15, 6])[0]
         latent = [rng.gauss(0, .30) for _ in range(4)]
