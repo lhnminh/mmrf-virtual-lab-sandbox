@@ -8,6 +8,8 @@ import json
 import os
 from pathlib import Path
 import runpy
+import shutil
+import subprocess
 import tempfile
 import unittest
 from unittest.mock import patch
@@ -42,6 +44,29 @@ class HelmSchemaParity(unittest.TestCase):
         project_arrays = next(item['array'] for item in chart['arrayConfig'] if item['index'] == 'sandbox_project')
         self.assertTrue({'disease_type', 'primary_site', 'summary.data_categories',
                          'summary.experimental_strategies'}.issubset(project_arrays))
+
+
+@unittest.skipUnless(shutil.which('helm'), 'helm is not installed')
+class ChatRuntimeAccess(unittest.TestCase):
+    ARN = 'arn:aws:bedrock-agentcore:us-west-2:123456789012:runtime/agent-abc'
+
+    def render(self, *args):
+        return subprocess.run(['helm', 'template', 'sandbox', str(ROOT / 'helm'), *args], check=True,
+                              capture_output=True, text=True).stdout
+
+    def test_without_an_arn_identity_has_no_way_out(self):
+        rendered = self.render()
+        self.assertNotIn('AGENTCORE_RUNTIME_ARN', rendered)
+        self.assertNotIn('0.0.0.0/0', rendered)
+        self.assertNotIn('169.254.169.254', rendered)
+
+    def test_with_an_arn_only_identity_gets_the_runtime_and_https_egress(self):
+        rendered = self.render('--set', f'agentcore.runtimeArn={self.ARN}')
+        self.assertIn(f'name: AGENTCORE_RUNTIME_ARN, value: "{self.ARN}"', rendered)
+        policy = next(doc for doc in rendered.split('\n---') if 'name: identity-agentcore' in doc)
+        self.assertIn('app.kubernetes.io/name: identity', policy)
+        self.assertIn('169.254.169.254/32', policy)
+        self.assertIn('0.0.0.0/0', policy)
 
 
 if __name__ == '__main__':

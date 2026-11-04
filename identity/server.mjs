@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 import { createIdentity } from './token.mjs';
 import { bridgePayload } from './cohorts.mjs';
 import { publicOrigin } from './access.mjs';
+import { AGENT_ROUTE, createAgentRoute } from './runtime-client.mjs';
 
 if (process.env.SYNTHETIC_SANDBOX !== '1') throw new Error('This service requires SYNTHETIC_SANDBOX=1');
 const identity = createIdentity();
@@ -44,10 +45,16 @@ async function body(req) {
   }
   return Buffer.concat(chunks);
 }
+// AGENTCORE_ENDPOINT exists for tests, so it can only name this machine.
+const runtimeEndpoint = process.env.AGENTCORE_ENDPOINT;
+if (runtimeEndpoint && !/^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(runtimeEndpoint)) throw new Error('Invalid AgentCore endpoint');
+const agentRoute = process.env.AGENTCORE_RUNTIME_ARN
+  ? createAgentRoute({ arn: process.env.AGENTCORE_RUNTIME_ARN, endpoint: runtimeEndpoint, readBody: body }) : null;
 const server = http.createServer(async (req, res) => {
   try {
     const url = new URL(req.url, 'http://sandbox.invalid');
     const path = url.pathname;
+    if (path === AGENT_ROUTE && agentRoute) return await agentRoute(req, res);
     if (path === '/_status' || path === '/sandbox/status') return json(res, { status: 'OK', synthetic: true, cases: cases.length, csrf: 'synthetic-only' });
     if (path === '/sandbox/session') return json(res, { access_token: identity.issue(), expires_in: 1800, synthetic: true });
     if (path.startsWith('/sandbox/files/')) {

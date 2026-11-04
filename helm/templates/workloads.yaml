@@ -45,6 +45,9 @@ spec:
             {{- if $.Values.access.enabled }}
             - {name: SANDBOX_PUBLIC_ORIGIN, value: {{ required "access.publicOrigin is required" $.Values.access.publicOrigin | quote }}}
             {{- end }}
+            {{- if $.Values.agentcore.runtimeArn }}
+            - {name: AGENTCORE_RUNTIME_ARN, value: {{ $.Values.agentcore.runtimeArn | quote }}}
+            {{- end }}
           {{- else if eq $name "frontend" }}
             - {name: GEN3_FENCE_SERVICE, value: 'http://identity:8080/user'}
             - {name: GEN3_AUTHZ_SERVICE, value: 'http://identity:8080'}

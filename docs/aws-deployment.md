@@ -53,6 +53,15 @@ python3 scripts/aws_sandbox.py build
 python3 scripts/aws_sandbox.py deploy --skip-build
 ```
 
+Faster redeploys, after one full build and deploy:
+
+```sh
+python3 scripts/aws_sandbox.py deploy --only identity,frontend  # rebuild only these
+python3 scripts/aws_sandbox.py deploy --config-only             # Helm settings only
+```
+
+`identity`, `seed` and `proteinpaint` each contain the generated fixtures, so use `--only` with images built from this checkout. Run `scripts/smoke.py` afterwards: mismatched images leave `guppy` and `analysis` waiting for the seed, or make mutation counts disagree with cohorts.
+
 Stop any local Compose stack before building if Docker memory is constrained.
 After a failed or interrupted deployment, rerun `deploy` from the same
 checkout, adding `--skip-build` if the build finished. Existing local images

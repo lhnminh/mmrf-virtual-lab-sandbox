@@ -25,6 +25,10 @@ run "agentcore_is_off_by_default" {
     condition     = length(module.agentcore) == 0 && output.agent_runtime_arn == null
     error_message = "A default deploy must create no AgentCore resources."
   }
+  assert {
+    condition     = length(aws_iam_role_policy.nodes_invoke_agent) == 0
+    error_message = "Without an agent, nodes must not be able to invoke one."
+  }
 }
 run "agentcore_needs_https" {
   command = plan
@@ -43,5 +47,9 @@ run "agentcore_on_with_https" {
   assert {
     condition     = length(module.agentcore) == 1
     error_message = "enable_agentcore must create the module."
+  }
+  assert {
+    condition     = length(aws_iam_role_policy.nodes_invoke_agent) == 1
+    error_message = "The identity pod needs the node role to invoke the agent."
   }
 }

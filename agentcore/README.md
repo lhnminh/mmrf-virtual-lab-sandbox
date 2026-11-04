@@ -1,6 +1,6 @@
 # AgentCore AG-UI proof of concept
 
-A Python Strands agent on AgentCore Runtime that speaks AG-UI, with one Python tool behind AgentCore Gateway. The local Chat page on `next dev` streams its answers.
+A Python Strands agent on AgentCore Runtime that speaks AG-UI, with Python tools behind AgentCore Gateway. Chat on the deployed site streams its answers through the `identity` pod, and Chat on `next dev` streams them through a dev-only route.
 
 Design: [`docs/superpowers/specs/2026-11-03-agentcore-agui-chat-design.md`](../docs/superpowers/specs/2026-11-03-agentcore-agui-chat-design.md) and the [architecture diagram](../docs/superpowers/specs/2026-11-03-agentcore-agui-chat-architecture.drawio.png).
 
@@ -28,7 +28,9 @@ Until the secret is filled, the tool returns `config_error`. The login is cached
 
 ## Connect Chat
 
-Charts and tool answers read the same deployed Virtual Lab, so no local stack is needed. In the `mmrf-data-commons` `feature/chat-cohort-tools` branch, add these to `.env.development.local`, which git ignores:
+On the deployed site, Chat needs no setup. `deploy` sets `AGENTCORE_RUNTIME_ARN` on `identity`, which answers `POST /api/agent/agui` and signs with the node role. It also sets the node's metadata hop limit to 2 so the pod can read that role, so a node replaced between deploys breaks Chat until the next `deploy`.
+
+The rest of this section is for running Chat locally. Charts and tool answers read the same deployed Virtual Lab, so no local stack is needed. In the `mmrf-data-commons` `feature/chat-cohort-tools` branch, add these to `.env.development.local`, which git ignores:
 
 ```sh
 AGENTCORE_RUNTIME_ARN=<terraform output agent_runtime_arn>

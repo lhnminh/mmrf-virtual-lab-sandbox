@@ -12,6 +12,22 @@ module "agentcore" {
   source_dir     = "${path.module}/../agentcore"
 }
 
+# Chat on the deployed site: the identity pod invokes the agent with the node role.
+# Only identity's NetworkPolicy allows it to reach the credentials.
+resource "aws_iam_role_policy" "nodes_invoke_agent" {
+  count = var.enable_agentcore ? 1 : 0
+  name  = "invoke-agent-runtime"
+  role  = aws_iam_role.nodes.id
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect   = "Allow"
+      Action   = "bedrock-agentcore:InvokeAgentRuntime"
+      Resource = [module.agentcore[0].agent_runtime_arn, "${module.agentcore[0].agent_runtime_arn}/runtime-endpoint/*"]
+    }]
+  })
+}
+
 output "agent_runtime_arn" {
   description = "AgentCore Runtime ARN, or null when AgentCore is off."
   value       = one(module.agentcore[*].agent_runtime_arn)

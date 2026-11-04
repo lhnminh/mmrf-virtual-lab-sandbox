@@ -96,6 +96,11 @@ services:
     environment:
       SYNTHETIC_SANDBOX: '1'
       PORT: '8080'
+      # Optional: answer Chat from a deployed agent. Local runs need AWS keys, since there's no node role.
+      AGENTCORE_RUNTIME_ARN: ${AGENTCORE_RUNTIME_ARN:-}
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}
+      AWS_SESSION_TOKEN: ${AWS_SESSION_TOKEN:-}
     healthcheck:
       test: [CMD, node, -e, "fetch('http://localhost:8080/sandbox/status').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
       interval: 5s

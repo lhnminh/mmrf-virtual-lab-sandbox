@@ -11,6 +11,9 @@ waitImage: curlimages/curl:8.12.1
 imagePullPolicy: IfNotPresent
 networkPolicy:
   enabled: true
+agentcore:
+  # When set, identity answers Chat from this AgentCore Runtime.
+  runtimeArn: ''
 access:
   enabled: false
   publicOrigin: ''

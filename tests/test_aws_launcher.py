@@ -135,6 +135,90 @@ class LauncherTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "configured operator IAM role"):
             operator.identity()
 
+    def test_only_rebuilds_named_services_and_keeps_other_image_ids(self):
+        with tempfile.TemporaryDirectory() as directory:
+            operator = launcher.Operator(CONFIG)
+            operator.directory = Path(directory)
+            old = {name: "sha256:old-" + name for name in launcher.SERVICES}
+            (operator.directory / "build.json").write_text(json.dumps({"tag": "build-old", "images": old}))
+            built = []
+            def run(args, capture=False, **_):
+                args = [str(arg) for arg in args]
+                if "build" in args and args[0] == "docker":
+                    built.append(args[-1])
+                if "{{.Architecture}}" in args:
+                    return "amd64\n"
+                if "{{.Id}}" in args:
+                    return "sha256:new\n"
+                return ""
+            operator.run = run
+            operator.build(["identity"])
+            self.assertEqual(built, ["identity"])
+            images = json.loads((operator.directory / "build.json").read_text())["images"]
+            self.assertEqual(images["identity"], "sha256:new")
+            self.assertEqual(images["seed"], old["seed"])
+
+    def test_only_needs_a_full_build_first(self):
+        with tempfile.TemporaryDirectory() as directory:
+            operator = launcher.Operator(CONFIG)
+            operator.directory = Path(directory)
+            (operator.directory / "build.json").write_text(json.dumps({"tag": "x", "images": {"identity": "sha"}}))
+            with self.assertRaisesRegex(ValueError, "full build"):
+                operator.build(["identity"])
+
+    def test_parse_services_rejects_unknown_names(self):
+        self.assertEqual(launcher.parse_services("identity, frontend"), ["identity", "frontend"])
+        with self.assertRaises(argparse.ArgumentTypeError):
+            launcher.parse_services("identity,nope")
+
+    def test_config_only_reuses_deployed_images_without_terraform_or_build(self):
+        with tempfile.TemporaryDirectory() as directory:
+            operator = launcher.Operator(CONFIG)
+            operator.directory = Path(directory)
+            (operator.directory / "values.json").write_text(json.dumps({"images": {"identity": "repo@sha256:1"}}))
+            operator.identity = Mock()
+            operator.outputs = Mock(return_value={"https_url": "x"})
+            operator.install = Mock()
+            operator.tf = Mock()
+            operator.build = Mock()
+            operator.deploy_config()
+            operator.install.assert_called_once_with({"https_url": "x"}, {"identity": "repo@sha256:1"})
+            operator.tf.assert_not_called()
+            operator.build.assert_not_called()
+
+    def install_with(self, outputs, aws=None):
+        with tempfile.TemporaryDirectory() as directory:
+            operator = launcher.Operator(CONFIG)
+            operator.directory = Path(directory)
+            for name in ("connect_cluster", "kube", "run", "status"):
+                setattr(operator, name, Mock())
+            operator.aws = aws or Mock(return_value={"Reservations": []})
+            origin = {"https_url": "https://d111111abcdef8.cloudfront.net", "origin_cidrs": ["10.0.0.0/24"]}
+            operator.install({**origin, **outputs}, {"identity": "repo@sha256:1"})
+            return json.loads((operator.directory / "values.json").read_text())
+
+    def test_chat_uses_the_runtime_terraform_created(self):
+        arn = "arn:aws:bedrock-agentcore:us-east-1:123456789012:runtime/agent-abc"
+        values = self.install_with({"agent_runtime_arn": arn})
+        self.assertEqual(values["agentcore"], {"runtimeArn": arn})
+
+    def test_no_runtime_leaves_chat_unconnected(self):
+        aws = Mock()
+        self.assertNotIn("agentcore", self.install_with({"agent_runtime_arn": None}, aws))
+        aws.assert_not_called()
+
+    def test_runtime_lets_pods_reach_credentials_on_this_clusters_nodes_only(self):
+        def instance(name, hop):
+            return {"InstanceId": name, "MetadataOptions": {"HttpPutResponseHopLimit": hop}}
+        aws = Mock(return_value={"Reservations": [{"Instances": [instance("i-low", 1), instance("i-set", 2)]}]})
+        self.install_with({"agent_runtime_arn": "arn:aws:bedrock-agentcore:us-east-1:123456789012:runtime/a"}, aws)
+        lookup = aws.call_args_list[0].args
+        self.assertEqual(lookup[:2], ("ec2", "describe-instances"))
+        self.assertIn("Name=tag:eks:cluster-name,Values=" + CONFIG["name"], lookup)
+        changes = [call.args for call in aws.call_args_list[1:]]
+        self.assertEqual(changes, [("ec2", "modify-instance-metadata-options", "--instance-id", "i-low",
+                                    "--http-put-response-hop-limit", "2", "--http-tokens", "required")])
+
     def test_secrets_are_private_and_origin_bound(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "access.json"
@@ -210,7 +294,7 @@ class LauncherTests(unittest.TestCase):
         operator.deploy(yes=True)
         self.assertEqual(operator.tf.call_args_list[0].args, ("plan", "-input=false", "-out=sandbox.tfplan"))
         self.assertEqual(operator.tf.call_args_list[1].args, ("apply", "-input=false", "sandbox.tfplan"))
-        operator.build.assert_called_once_with()
+        operator.build.assert_called_once_with(None)
 
     def test_build_failure_stops_deploy_before_publishing(self):
         operator = launcher.Operator(CONFIG)
