@@ -107,6 +107,22 @@ class VirtualLabClient:
         except (KeyError, IndexError, TypeError, ValueError):
             raise ClientError("unhealthy", "The ranked genes were missing.") from None
 
+    def top_variable_genes(self, cohort_filter, max_genes):
+        """The gene symbols, in the service's order. A reply's error text can hold server details, so it's not passed on."""
+        query = {"maxGenes": max_genes}
+        if cohort_filter:
+            query["filter0"] = cohort_filter
+        reply = self._get("termdb/topVariablyExpressedGenes", query)
+        error = reply.get("error")
+        if error:
+            if "at least 10 sample" in str(error):
+                raise ClientError("too_few_samples", "The cohort has too few samples to rank genes.")
+            raise ClientError("unhealthy", "The gene ranking failed.")
+        try:
+            return [gene if isinstance(gene, str) else gene["gene"] for gene in reply["genes"]]
+        except (KeyError, TypeError):
+            raise ClientError("unhealthy", "The ranked genes were missing.") from None
+
     def lookup_gene(self, name):
         reply = self._paint("genelookup", {"input": name, "deep": 1})
         matches = reply.get("gmlst")

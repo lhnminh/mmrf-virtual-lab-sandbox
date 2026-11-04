@@ -5,6 +5,7 @@ import pathlib
 import sys
 import unittest
 import urllib.error
+import urllib.parse
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1] / "lambda"))
 import results  # noqa: E402
@@ -95,6 +96,46 @@ class Queries(unittest.TestCase):
         self.assertEqual(body["genome"], "hg38")
         self.assertEqual(body["filter0"], COHORT)
         self.assertEqual(body["maxGenes"], 2)
+
+    def test_top_variable_genes_sends_a_get_with_filter0(self):
+        client, opener = make({"genes": ["IGLC2", "IGKC"]})
+        self.assertEqual(client.top_variable_genes(COHORT, 20), ["IGLC2", "IGKC"])
+        request = opener.requests[-1]
+        parts = urllib.parse.urlsplit(request.full_url)
+        query = urllib.parse.parse_qs(parts.query)
+        self.assertEqual(request.get_method(), "GET")
+        self.assertEqual(parts.path, "/protein-paint/termdb/topVariablyExpressedGenes")
+        self.assertEqual(query["maxGenes"], ["20"])
+        self.assertEqual(query["dslabel"], ["MMRF"])
+        self.assertEqual(json.loads(query["filter0"][0]), COHORT)
+
+    def test_top_variable_genes_omits_filter0_without_cohort(self):
+        client, opener = make({"genes": ["IGLC2"]})
+        client.top_variable_genes(None, 20)
+        self.assertNotIn("filter0", opener.requests[-1].full_url)
+
+    def test_top_variable_genes_reads_gene_objects(self):
+        client, _ = make({"genes": [{"gene": "IGLC2"}]})
+        self.assertEqual(client.top_variable_genes(None, 20), ["IGLC2"])
+
+    def test_too_few_samples_has_its_own_step(self):
+        client, _ = make({"status": "error", "error": "Error: samples must include at least 10 sample IDs"})
+        with self.assertRaises(ClientError) as caught:
+            client.top_variable_genes(COHORT, 20)
+        self.assertEqual(caught.exception.step, "too_few_samples")
+
+    def test_other_reply_errors_hide_the_detail(self):
+        client, _ = make({"status": "error", "error": "spawned 'topVEgene.py' exited with code 1"})
+        with self.assertRaises(ClientError) as caught:
+            client.top_variable_genes(COHORT, 20)
+        self.assertEqual(caught.exception.step, "unhealthy")
+        self.assertNotIn("topVEgene", str(caught.exception))
+
+    def test_missing_variable_genes_is_unhealthy(self):
+        client, _ = make({})
+        with self.assertRaises(ClientError) as caught:
+            client.top_variable_genes(COHORT, 20)
+        self.assertEqual(caught.exception.step, "unhealthy")
 
     def test_top_genes_omits_filter0_without_cohort(self):
         client, opener = make({"genes": []})
