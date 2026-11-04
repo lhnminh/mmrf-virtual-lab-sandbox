@@ -36,7 +36,7 @@ have no clinical meaning, and tests compare with the live chart, not with these 
 | "A vs B" | A comparison on the current cohort. The cohort doesn't change, and no cohorts are saved | Recommendation, accepted |
 | "Survival for high-risk patients" | `update_cohort`, then one curve. The cohort stays changed and offers Undo, as "only women" does | Recommendation, accepted |
 | A p-value of `"0"` | Report what the chart shows and explain it. Never write "p = 0" as if exact | Recommendation, accepted |
-| Race as a comparison | Kept, if it passes a live check | Recommendation, accepted |
+| Race as a comparison | Kept. A live check returned three groups and three p-values | Recommendation, accepted |
 
 The Vision document says the agent "selects" two cohorts. This design uses one overlay on
 the active cohort, which gives the same two curves and matches the journey's route. Nothing
@@ -76,7 +76,7 @@ enforce values.
 | CGS risk, high vs standard risk | CGS risk | `cgs_risk_category` |
 | KRAS mutated vs not | KRAS status | `kras_status` |
 | Men vs women | Sex | `gender` |
-| Across races | Race | `race`, if it passes the live check |
+| Across races | Race | `race` |
 
 Fields left out on purpose:
 
@@ -122,8 +122,8 @@ confirm it in the server's code and correct the wording if it's wrong.
 count for the cohort. They matched at 1,000 and 334 on the live data. If they differ, the
 summary states both numbers. It isn't treated as a failure, because ProteinPaint can
 legitimately count fewer: OncoMatrix shows 287 samples for 334 cases. A live check confirms
-that a filter on a field ProteinPaint can't read doesn't silently give all cases. If it does,
-that case must become a failed step.
+already confirmed that a filter on a field ProteinPaint can't read returns HTTP 400 rather than
+all cases, which makes it a failed step.
 
 ### Result
 
@@ -133,7 +133,8 @@ that case must become a failed step.
   "summary": "1000 cases, overall survival, compared by CGS risk. High risk: 334 cases, 292 deaths, 42 censored, median 3.21 years. Standard risk: 666 cases, 309 deaths, 357 censored, median 8.92 years. Log-rank P-value shows 0 on the chart, meaning too small to calculate exactly. Medians are calculated from the curve.",
   "cohort": { "label": "All cases", "caseCount": 1000, "revision": 1 },
   "groups": ["High risk", "Standard risk"],
-  "plot": { "type": "survival", "compareBy": "cgs_risk_category" }
+  "comparedBy": "CGS risk",
+  "plot": { "type": "survival", "term": "overall_survival", "compareBy": "cgs_risk_category" }
 }
 ```
 
@@ -209,7 +210,7 @@ with the chart on the same page, not with values in this document.
 | CGS comparison in a High-risk-only cohort | `one_group`, with no p-value |
 | TP53 comparison | `unsupported_comparison`, listing what's available |
 | Empty cohort | `no_cases`, with no chart. Chat won't apply a 0-case cohort, so this is checked in a unit test, and live only if a route to it exists |
-| Race comparison | Works, or Race is removed from the list |
+| Race comparison | Three curves, with every pair's p-value in the answer |
 | Wrong login | Failed step, with no numbers from it |
 | Second turn in one thread | Earlier charts stay on screen and don't refetch |
 | Medians | Match the chart's dashed lines with Median Survival turned on |
@@ -266,3 +267,8 @@ Run on 2026-11-04 against the deployed services, through the local forwarder:
 | Gene overlay, TP53, attempted term shape | One group only, with no comparison or p-value |
 | Empty filter match | `case` empty, with no error |
 | Term without `$id` | HTTP 200 with `error: "term1 is missing $id"` |
+| Race comparison, all cases | 332, 334 and 334 cases, with three pairwise p-values |
+| CGS risk in a High-risk-only cohort | One group, 334 cases, no `tests` |
+| Filters on ethnicity, ISS stage, regimen and case IDs | Each narrows correctly: 502, 316, 252 and 3 cases |
+| Filter on an unknown field | HTTP 400 |
+| `termdb/config` | GET works, POST returns 404. `termdb/survival` accepts both |
