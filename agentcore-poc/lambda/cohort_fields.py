@@ -2,6 +2,7 @@
 import difflib
 import json
 import pathlib
+import re
 from dataclasses import dataclass, field
 
 _CATALOG = json.loads((pathlib.Path(__file__).with_name("cohort_fields.json")).read_text())
@@ -62,19 +63,23 @@ def resolve_field(text):
         return Field(exact[0], field_label(exact[0]), FIELDS[exact[0]]["supported"])
     spellings = {}
     for name in FIELDS:
-        if FIELDS[name]["supported"]:
-            for spelling in _names_for(name):
-                spellings.setdefault(spelling, name)
+        for spelling in _names_for(name):
+            spellings.setdefault(spelling, name)
     for spelling in _SYNONYMS:
         spellings.setdefault(_key(spelling), _SYNONYMS[spelling])
     closest = []
     for spelling in difflib.get_close_matches(wanted, list(spellings), n=10, cutoff=0.5):
         name = spellings[spelling]
-        if name not in [c["field"] for c in closest]:
+        if name not in [c["field"] for c in closest] and FIELDS.get(name, {}).get("supported", True):
             closest.append({"field": name, "label": field_label(name)})
     substring = [spellings[s] for s in spellings if wanted and (wanted in s or s in wanted)]
+    whole = {n for sp, n in spellings.items() if wanted and n in FIELDS and re.search(rf"\b{re.escape(wanted)}\b", sp)}
+    if whole and not any(FIELDS[n]["supported"] for n in whole):
+        # Only number-range fields use this word, such as "age": say so rather than "no such field".
+        name = sorted(whole)[0]
+        return Field(name, field_label(name), False)
     for name in substring:
-        if name not in [c["field"] for c in closest]:
+        if name not in [c["field"] for c in closest] and FIELDS.get(name, {}).get("supported", True):
             closest.append({"field": name, "label": field_label(name)})
     return Closest(closest[:5])
 
@@ -91,7 +96,9 @@ def resolve_values(field_name, requested, available):
         if wanted in by_lower:
             match = by_lower[wanted]
         else:
-            partial = [v for low, v in by_lower.items() if wanted and (wanted in low)]
+            partial = [v for low, v in by_lower.items() if wanted and re.search(rf"\b{re.escape(wanted)}\b", low)]
+            if len(partial) != 1:
+                partial = [v for low, v in by_lower.items() if wanted and (wanted in low)]
             if len(partial) > 1:
                 return Ambiguous(str(text), partial)
             if not partial:

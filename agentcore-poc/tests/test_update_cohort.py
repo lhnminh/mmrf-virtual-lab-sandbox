@@ -5,7 +5,7 @@ import sys
 import unittest
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1] / "lambda"))
-from cohort_fields import resolve_field, resolve_values  # noqa: E402
+from cohort_fields import Ambiguous, resolve_field, resolve_values  # noqa: E402
 from tool_update_cohort import update_cohort  # noqa: E402
 from virtual_lab_client import ClientError  # noqa: E402
 
@@ -101,6 +101,11 @@ class Outcomes(unittest.TestCase):
         self.assertEqual(result["status"], "unsupported_field")
         self.assertNotIn("filter", result)
 
+    def test_bare_age_is_unsupported_not_unknown(self):
+        result = run(one("age", ["50"]))
+        self.assertEqual(result["status"], "unsupported_field")
+        self.assertIn("isn't supported yet", result["summary"])
+
     def test_zero_cases_would_be_empty(self):
         client = FakeClient({json.dumps(RACE_BLACK, sort_keys=True): 0})
         result = run(one("race", ["black"]), client=client)
@@ -171,6 +176,15 @@ class Resolvers(unittest.TestCase):
     def test_exact_beats_substring(self):
         resolved = resolve_values("demographic.ethnicity", ["Hispanic or Latino"], VALUES["demographic.ethnicity"])
         self.assertEqual(resolved.values, ["hispanic or latino"])
+
+    def test_whole_word_beats_substring(self):
+        stages = [("I", 300), ("II", 400), ("III", 300)]
+        resolved = resolve_values("diagnoses.iss_stage", ["I"], stages)
+        self.assertEqual(resolved.values, ["I"])
+
+    def test_hispanic_stays_ambiguous(self):
+        resolved = resolve_values("demographic.ethnicity", ["Hispanic"], VALUES["demographic.ethnicity"])
+        self.assertIsInstance(resolved, Ambiguous)
 
     def test_field_by_gen3_name_and_label(self):
         self.assertEqual(resolve_field("demographic.race").name, "demographic.race")
