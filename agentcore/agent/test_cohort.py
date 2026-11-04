@@ -4,6 +4,7 @@ import asyncio
 import json
 import logging
 import unittest
+from types import SimpleNamespace
 import uuid
 
 from ag_ui.core import RunAgentInput
@@ -577,6 +578,53 @@ class FromState(unittest.TestCase):
         for state in (None, "x", [], {}, {"cohort": None}, {"cohort": []}, {"cohort": {"label": "x"}}):
             with self.subTest(state=state):
                 self.assertIsNone(cohort_from_state(state))
+
+
+GRAPH_TOOL = "kg-graph___kg_get_phenotypes"
+GRAPH_BODY = {"result_type": "graph", "summary": "ok", "trace": {"tool_calls": [{"inputs": {"filter": "marker-from-graph"}}]}}
+
+
+class GraphTools(unittest.TestCase):
+    """Graph tools know nothing about cohorts, so a cohort must never reach them or be changed by them."""
+
+    def harness(self, plans):
+        seen = []
+        harness = Harness(plans, tools=[FakeTool(GRAPH_TOOL, lambda tool_input: GRAPH_BODY, seen),
+                                        FakeTool(LOLLIPOP_TOOL, shown, seen)])
+        harness.seen = seen
+        return harness
+
+    def test_graph_tool_receives_no_cohort_filter(self):
+        harness = self.harness({"go": [[(GRAPH_TOOL, {"disease_id": "MONDO:0009693"})]]})
+        harness.run("go")
+        self.assertEqual(harness.inputs(GRAPH_TOOL), [{"disease_id": "MONDO:0009693"}])
+
+    def test_model_cannot_send_a_filter_to_a_graph_tool(self):
+        harness = self.harness({"go": [[(GRAPH_TOOL, {"disease_id": "x", "cohortFilter": {"in": {"made": ["up"]}}})]]})
+        harness.run("go")
+        self.assertEqual(harness.inputs(GRAPH_TOOL), [{"disease_id": "x"}])
+
+    def test_graph_tool_result_is_returned_unchanged(self):
+        harness = self.harness({"go": [[(GRAPH_TOOL, {"disease_id": "x"})]]})
+        harness.run("go")
+        self.assertTrue(any("marker-from-graph" in str(call) for call in harness.model.calls))
+
+    def test_graph_tool_call_leaves_the_cohort_unchanged(self):
+        harness = self.harness({"go": [[(GRAPH_TOOL, {"disease_id": "x"})], [(LOLLIPOP_TOOL, {"gene": "KRAS"})]]})
+        harness.run("go")
+        self.assertEqual(harness.inputs(LOLLIPOP_TOOL)[0]["cohortFilter"], BASE_FILTER)
+
+    def test_graph_transport_failure_still_reads_as_a_failure(self):
+        event = SimpleNamespace(tool_use={"name": GRAPH_TOOL, "toolUseId": "t"}, invocation_state={},
+                                result={"toolUseId": "t", "status": "error", "content": [{"text": "Gateway returned 502"}]})
+        CohortHooks().after(event)
+        self.assertEqual(json.loads(event.result["content"][0]["text"]),
+                         {"status": "error", "summary": "Gateway returned 502"})
+
+    def test_virtual_lab_tool_still_gets_the_filter(self):
+        harness = self.harness({"go": [[(LOLLIPOP_TOOL, {"gene": "KRAS"})]]})
+        harness.run("go")
+        self.assertEqual(harness.inputs(LOLLIPOP_TOOL)[0]["cohortFilter"], BASE_FILTER)
 
 
 if __name__ == "__main__":

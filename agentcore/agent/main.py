@@ -1,4 +1,5 @@
 """AgentCore Runtime entry point for the Virtual Lab agent, speaking AG-UI."""
+import logging
 import os
 
 from ag_ui_strands import StrandsAgent, StrandsAgentConfig, ToolBehavior
@@ -11,6 +12,8 @@ from strands.tools.mcp import MCPClient
 
 from cohort import UPDATE_TOOL, CohortHooks, prompt_context, state_from_update
 from runs import LazyAdapter, handle_run
+
+logger = logging.getLogger(__name__)
 
 REGION = os.environ["AGENT_REGION"]
 MAX_TOKENS = int(os.environ.get("MAX_OUTPUT_TOKENS", "1024"))
@@ -29,7 +32,7 @@ Quote only numbers that appear in a tool result's summary, exactly as given and 
 
 Write the answer in these sections:
 Observed: what the tool results show.
-Limits: always include this. Say the data is synthetic and has no clinical meaning, and say "Numbers are for the default view and don't reflect changes made in the chart." Add anything specific to this result.
+Limits: always include this. When you used Virtual Lab tools, say the data is synthetic and has no clinical meaning, and say "Numbers are for the default view and don't reflect changes made in the chart." Add anything specific to this result.
 Interpretation: only if the researcher asks for it, and labelled separately from Observed.
 
 Only when the latest researcher message says the researcher changed the cohort outside chat, start the answer to that message with "Now using: " followed by the cohort's name and case count. Otherwise never write "Now using", even if an earlier answer did. The selected cohort's case count, given in the message, is the only number you may quote from outside a summary.
@@ -41,6 +44,47 @@ Other statuses, such as none_in_cohort, are results and not failures: report the
 Follow-up buttons appear under some charts, so don't repeat them in your answer. Keep answers short."""
 
 
+# Added to the prompt only when the graph tools exist.
+KNOWLEDGE_GRAPH_RULES = """
+
+Tools named kg-graph___ read a knowledge graph of published myeloma knowledge. It's public reference data, not the Virtual Lab's synthetic data, so don't call it synthetic.
+These tools report failures in summary and limitations, not as tool errors, so read both.
+Under Observed, report what observations state, and cite each source and its version. Report interpretation only as labelled explanation, never as established fact. Under Limits, pass on every item in limitations.
+An empty result only describes this graph: say "none recorded", never "none exists".
+Report treatments and drugs as recorded knowledge, and give no treatment recommendations. Graph content is published knowledge and never validates a synthetic Virtual Lab result."""
+
+
+def system_prompt():
+    return SYSTEM_PROMPT + KNOWLEDGE_GRAPH_RULES if os.environ.get("KG_GATEWAY_URL") else SYSTEM_PROMPT
+
+
+def _gateway_client(endpoint):
+    return MCPClient(
+        lambda: aws_iam_streamablehttp_client(
+            endpoint=endpoint,
+            aws_region=REGION,
+            aws_service="bedrock-agentcore",
+            timeout=GATEWAY_TIMEOUT_SECONDS,
+        )
+    )
+
+
+def gateway_clients():
+    """The Virtual Lab client, plus the graph's if its Gateway answers, so a graph outage doesn't stop Chat."""
+    clients = [_gateway_client(os.environ["GATEWAY_URL"])]
+    graph_url = os.environ.get("KG_GATEWAY_URL")
+    if graph_url:
+        try:
+            with _gateway_client(graph_url) as probe:
+                probe.list_tools_sync()
+        except Exception:
+            logger.warning("The knowledge graph Gateway didn't answer, so its tools are off until restart", exc_info=True)
+        else:
+            # A stopped client isn't reused, so the agent gets a new one.
+            clients.append(_gateway_client(graph_url))
+    return clients
+
+
 # The adapter keeps the template's tools but not the template. If the template were
 # collected, Agent.__del__ would stop the MCP client those tools need.
 _templates = []
@@ -49,19 +93,10 @@ _templates = []
 def build_adapter() -> StrandsAgent:
     template = Agent(
         model=BedrockModel(model_id=os.environ["MODEL_ID"], region_name=REGION, max_tokens=MAX_TOKENS),
-        system_prompt=SYSTEM_PROMPT,
+        system_prompt=system_prompt(),
         # One at a time, so a tool asked for alongside update_cohort gets the new cohort.
         tool_executor=SequentialToolExecutor(),
-        tools=[
-            MCPClient(
-                lambda: aws_iam_streamablehttp_client(
-                    endpoint=os.environ["GATEWAY_URL"],
-                    aws_region=REGION,
-                    aws_service="bedrock-agentcore",
-                    timeout=GATEWAY_TIMEOUT_SECONDS,
-                )
-            )
-        ],
+        tools=gateway_clients(),
     )
     _templates.append(template)
     return StrandsAgent(

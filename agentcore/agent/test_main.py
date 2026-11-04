@@ -85,5 +85,66 @@ class SystemPrompt(unittest.TestCase):
         self.assertNotIn("filter", main.SYSTEM_PROMPT.lower())
 
 
+class KnowledgeGraphClients(unittest.TestCase):
+    def test_one_gateway_client_without_a_graph_url(self):
+        with mock.patch.dict(os.environ), mock.patch.object(main, "MCPClient"):
+            os.environ.pop("KG_GATEWAY_URL", None)
+            self.assertEqual(len(main.gateway_clients()), 1)
+
+    def test_two_gateway_clients_with_a_graph_url(self):
+        with mock.patch.dict(os.environ, {"KG_GATEWAY_URL": "https://graph.invalid/mcp"}), \
+                mock.patch.object(main, "MCPClient") as client, \
+                mock.patch.object(main, "aws_iam_streamablehttp_client") as transport:
+            clients = main.gateway_clients()
+            client.call_args.args[0]()
+        self.assertEqual(len(clients), 2)
+        self.assertEqual(transport.call_args.kwargs["endpoint"], "https://graph.invalid/mcp")
+
+    def test_a_stopped_probe_client_is_not_handed_to_the_agent(self):
+        with mock.patch.dict(os.environ, {"KG_GATEWAY_URL": "https://graph.invalid/mcp"}), \
+                mock.patch.object(main, "MCPClient", side_effect=lambda *a, **k: mock.MagicMock()) as client:
+            clients = main.gateway_clients()
+        probe = client.mock_calls and [c for c in clients if c.list_tools_sync.called]
+        self.assertEqual(probe, [])
+
+    def test_graph_outage_leaves_virtual_lab_tools_and_warns(self):
+        broken = mock.MagicMock()
+        broken.__enter__.side_effect = RuntimeError("gateway down")
+        with mock.patch.dict(os.environ, {"KG_GATEWAY_URL": "https://graph.invalid/mcp"}), \
+                mock.patch.object(main, "MCPClient", side_effect=[mock.MagicMock(), broken]), \
+                self.assertLogs("main", level="WARNING") as logs:
+            clients = main.gateway_clients()
+        self.assertEqual(len(clients), 1)
+        self.assertIn("knowledge graph", logs.output[0])
+
+    def test_build_adapter_uses_the_graph_prompt_when_configured(self):
+        with mock.patch.dict(os.environ, {"KG_GATEWAY_URL": "https://graph.invalid/mcp"}), \
+                mock.patch.object(main, "gateway_clients", return_value=[FakeProvider()]):
+            adapter = main.build_adapter()
+        self.assertIsNotNone(adapter)
+        self.assertIn(main.KNOWLEDGE_GRAPH_RULES, main._templates[-1].system_prompt)
+
+
+class KnowledgeGraphPrompt(unittest.TestCase):
+    def test_graph_rules_only_when_the_graph_is_configured(self):
+        with mock.patch.dict(os.environ):
+            os.environ.pop("KG_GATEWAY_URL", None)
+            self.assertEqual(main.system_prompt(), main.SYSTEM_PROMPT)
+        with mock.patch.dict(os.environ, {"KG_GATEWAY_URL": "https://graph.invalid/mcp"}):
+            self.assertIn(main.KNOWLEDGE_GRAPH_RULES, main.system_prompt())
+
+    def test_graph_rules_say_what_the_spec_requires(self):
+        for words in ("limitations", "none recorded", "none exists", "treatment", "observations", "interpretation",
+                      "published knowledge", "summary"):
+            with self.subTest(words=words):
+                self.assertIn(words, main.KNOWLEDGE_GRAPH_RULES)
+
+    def test_graph_rules_do_not_mention_a_filter(self):
+        self.assertNotIn("filter", main.KNOWLEDGE_GRAPH_RULES.lower())
+
+    def test_synthetic_notice_applies_to_virtual_lab_answers(self):
+        self.assertIn("When you used Virtual Lab tools", main.SYSTEM_PROMPT)
+
+
 if __name__ == "__main__":
     unittest.main()

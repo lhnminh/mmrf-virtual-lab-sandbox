@@ -12,7 +12,8 @@ from strands.hooks import AfterToolCallEvent, BeforeToolCallEvent, HookProvider,
 
 logger = logging.getLogger(__name__)
 
-UPDATE_TOOL = "virtual-lab___update_cohort"
+VIRTUAL_LAB_PREFIX = "virtual-lab___"
+UPDATE_TOOL = VIRTUAL_LAB_PREFIX + "update_cohort"
 FILTER_INPUT = "cohortFilter"
 FILTER_RESULT = "filter"
 LABEL_LIMIT = 200
@@ -102,6 +103,15 @@ def _is_usable_update(body):
             and (body["status"] != "ok" or (FILTER_RESULT in body and isinstance(body.get("cohort"), dict))))
 
 
+def _with_failure_body(result):
+    """A transport failure (Gateway or Lambda unreachable) has plain text, not the JSON contract.
+    Without a body the UI would show Done. The text can't hold a filter: it isn't JSON."""
+    if result.get("status") != "error" or _first_body(result) is not None:
+        return result
+    text = " ".join(str(b.get("text", "")) for b in result.get("content") or [] if isinstance(b, dict) and b.get("text")).strip()
+    return {**result, "content": [{"text": json.dumps({"status": "error", "summary": text or "The tool call failed."})}]}
+
+
 def _clean_result(result, revision):
     """A copy of the tool result for the model. Text that isn't JSON stays as it is."""
     content = []
@@ -110,12 +120,7 @@ def _clean_result(result, revision):
         if body is not None:
             block = {**block, "text": json.dumps(_clean_body(body, revision))}
         content.append(block)
-    if result.get("status") == "error" and _first_body(result) is None:
-        # A transport failure (Gateway or Lambda unreachable) has plain text, not the JSON contract.
-        # Without a body the UI would show Done. The text can't hold a filter: it isn't JSON.
-        text = " ".join(str(b.get("text", "")) for b in content if isinstance(b, dict) and b.get("text")).strip()
-        content = [{"text": json.dumps({"status": "error", "summary": text or "The tool call failed."})}]
-    clean = {**result, "content": content}
+    clean = _with_failure_body({**result, "content": content})
     if "structuredContent" in clean:
         clean["structuredContent"] = _clean_body(clean["structuredContent"], revision)
     if "metadata" in clean:
@@ -135,12 +140,16 @@ class CohortHooks(HookProvider):
         arguments = dict(tool_use["input"]) if isinstance(tool_use.get("input"), dict) else {}
         arguments.pop(FILTER_INPUT, None)  # A filter the model made up is never used.
         cohort = event.invocation_state.get("cohort")
-        if cohort is not None:
+        # Only Virtual Lab tools use a cohort. Others, such as the graph tools, log their inputs.
+        if cohort is not None and tool_use["name"].startswith(VIRTUAL_LAB_PREFIX):
             arguments[FILTER_INPUT] = cohort.get(FILTER_RESULT)
         # A copy: the model's own tool_use is what stays in the message history.
         event.tool_use = {**tool_use, "input": arguments}
 
     def after(self, event):
+        if not event.tool_use["name"].startswith(VIRTUAL_LAB_PREFIX):
+            event.result = _with_failure_body(event.result)
+            return
         result = event.result
         body = _first_body(result)
         revision = _revision(event.invocation_state.get("cohort"))
