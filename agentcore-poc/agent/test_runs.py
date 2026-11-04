@@ -19,10 +19,10 @@ VALID = {
 class FakeAdapter:
     def __init__(self, events=(), error=None):
         self.events, self.error = events, error
-        self.seen, self.closed = None, False
+        self.seen, self.closed, self.invocation_state = None, False, None
 
-    def run(self, run_input):
-        self.seen = run_input
+    def run(self, run_input, invocation_state=None):
+        self.seen, self.invocation_state = run_input, invocation_state
         return self._stream()
 
     async def _stream(self):
@@ -59,6 +59,19 @@ class HandleRun(unittest.TestCase):
         payload = {**VALID, "tools": [{"name": "x", "description": "d", "parameters": {}}]}
         collect(payload, adapter)
         self.assertEqual(adapter.seen.tools, [])
+
+    def test_state_cohort_goes_to_invocation_state(self):
+        adapter = FakeAdapter()
+        cohort = {"filter": {"in": {"race": ["x"]}}, "label": "L", "caseCount": 1, "revision": 3}
+        collect({**VALID, "state": {"cohort": cohort}}, adapter)
+        self.assertEqual(adapter.invocation_state, {"cohort": cohort})
+
+    def test_no_cohort_still_sets_the_key(self):
+        for state in ({}, None, "text"):
+            with self.subTest(state=state):
+                adapter = FakeAdapter()
+                collect({**VALID, "state": state}, adapter)
+                self.assertEqual(adapter.invocation_state, {"cohort": None})
 
     def test_events_use_wire_names(self):
         event = collect(VALID, FakeAdapter([text_event()]))[0]
@@ -130,6 +143,12 @@ class Lazy(unittest.TestCase):
         self.assertEqual(events[-1]["code"], "AGENT_ERROR")
         self.assertNotIn("arn:secret", str(events))
         self.assertEqual(collect(VALID, adapter)[0]["type"], "TEXT_MESSAGE_CONTENT")
+
+    def test_passes_invocation_state_through(self):
+        inner = FakeAdapter([text_event()])
+        cohort = {"filter": None, "revision": 1}
+        collect({**VALID, "state": {"cohort": cohort}}, LazyAdapter(lambda: inner))
+        self.assertEqual(inner.invocation_state, {"cohort": cohort})
 
     def test_closes_inner_stream_on_disconnect(self):
         inner = FakeAdapter([text_event("one"), text_event("two")])

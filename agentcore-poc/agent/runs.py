@@ -6,6 +6,8 @@ from typing import AsyncIterator, Callable
 from ag_ui.core import EventType, RunAgentInput, RunErrorEvent
 from pydantic import ValidationError
 
+from cohort import cohort_from_state
+
 logger = logging.getLogger(__name__)
 
 FAILURE_MESSAGE = "The agent could not finish this run."
@@ -27,10 +29,10 @@ class LazyAdapter:
         self._factory = factory
         self._adapter = None
 
-    async def run(self, run_input):
+    async def run(self, run_input, invocation_state=None):
         if self._adapter is None:
             self._adapter = await asyncio.to_thread(self._factory)
-        stream = self._adapter.run(run_input)
+        stream = self._adapter.run(run_input, invocation_state=invocation_state)
         try:
             async for event in stream:
                 yield event
@@ -46,7 +48,9 @@ async def handle_run(payload: dict, adapter, log=logger) -> AsyncIterator[dict]:
         yield _run_error("INVALID_RUN_INPUT", "Request body is not a valid RunAgentInput")
         return
 
-    stream = adapter.run(run_input)
+    # The key is always there, even with no cohort: the adapter drops the keys it was
+    # given from RAW events, and update_cohort can set this one during the run.
+    stream = adapter.run(run_input, invocation_state={"cohort": cohort_from_state(run_input.state)})
     try:
         async for event in stream:
             if event is None:

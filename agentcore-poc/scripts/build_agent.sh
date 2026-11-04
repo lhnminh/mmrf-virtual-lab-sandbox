@@ -14,7 +14,7 @@ uv pip install --quiet --target "$target" \
   --python-platform aarch64-manylinux2014 --python-version 3.13 --only-binary=:all: \
   -r "$build/requirements.txt"
 
-cp "$root/agent/main.py" "$root/agent/runs.py" "$target/"
+cp "$root/agent/main.py" "$root/agent/runs.py" "$root/agent/cohort.py" "$target/"
 find "$target" -type d -name __pycache__ -prune -exec rm -rf {} +
 find "$target" -type d -exec chmod 755 {} +
 find "$target" -type f -exec chmod 644 {} +
