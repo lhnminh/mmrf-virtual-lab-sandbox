@@ -15,5 +15,6 @@ No code from the private theMMRF/ppmmrf repository is redistributed here.
 The ProteinPaint image downloads Molecular Signatures Database (MSigDB) 2023.2.Hs
 gene sets, Copyright Broad Institute, Inc., Massachusetts Institute of
 Technology, and Regents of the University of California, under CC BY 4.0, in
-the format St. Jude publishes for ProteinPaint.
+the format St. Jude publishes for ProteinPaint. synthetic/mek-signatures.tsv
+lists the members of two of those sets under the same license.
 See https://www.gsea-msigdb.org/gsea/msigdb_license_terms.jsp.
