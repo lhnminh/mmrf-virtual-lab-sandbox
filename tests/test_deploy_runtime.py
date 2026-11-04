@@ -95,6 +95,17 @@ class DeployRuntimeTests(unittest.TestCase):
         self.assertFalse(any(PASSWORD in arg for args in ctx.commands for arg in args))
         self.assertEqual(ctx.requests[0][1]["environmentVariables"]["SANDBOX_ACCESS_PASSWORD"], PASSWORD)
 
+    def test_observability_defaults_allow_explicit_overrides(self):
+        ctx = FakeContext(self.temp.name)
+        environment = deploy_runtime.runtime_environment(ctx)
+        self.assertEqual(environment["AGENT_OBSERVABILITY_ENABLED"], "true")
+        self.assertEqual(environment["OTEL_SERVICE_NAME"], "mmrf-orchestrator-agent")
+        self.assertEqual(environment["OTEL_AWS_APPLICATION_SIGNALS_ENABLED"], "false")
+        ctx.extra_env = {"AGENT_OBSERVABILITY_ENABLED": "false", "OTEL_SERVICE_NAME": "custom-agent"}
+        environment = deploy_runtime.runtime_environment(ctx)
+        self.assertEqual(environment["AGENT_OBSERVABILITY_ENABLED"], "false")
+        self.assertEqual(environment["OTEL_SERVICE_NAME"], "custom-agent")
+
     def test_failed_runtime_stops_the_deploy(self):
         ctx = FakeContext(self.temp.name, statuses=["CREATING", "CREATE_FAILED"])
         with self.assertRaisesRegex(ValueError, "CREATE_FAILED"):

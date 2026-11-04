@@ -72,6 +72,10 @@ def runtime_environment(ctx):
         "AGENT_PORT": SERVING_PORT,
         "AWS_REGION": ctx.region,
         "BEDROCK_MODEL_ID": os.environ.get("BEDROCK_MODEL_ID", DEFAULT_MODEL_ID),
+        # ADOT is preloaded by the container; use its AWS agent export defaults.
+        "AGENT_OBSERVABILITY_ENABLED": "true",
+        "OTEL_SERVICE_NAME": "mmrf-orchestrator-agent",
+        "OTEL_AWS_APPLICATION_SIGNALS_ENABLED": "false",
     }
     if ctx.access:
         environment.update(VIRTUAL_LAB_ORIGIN=ctx.access["origin"],

@@ -120,6 +120,37 @@ conversational Chat without registering analysis tools. In this mode the
 assistant can explain research concepts but cannot inspect cohorts or compute
 results.
 
+## AgentCore observability
+
+The agent container preloads AWS Distro for OpenTelemetry (ADOT) before the
+ESM server starts. Strands uses that global provider to export agent, model,
+and tool spans; do not register a second provider with `setupTracer()`.
+Runtime deployments set `AGENT_OBSERVABILITY_ENABLED=true`,
+`OTEL_SERVICE_NAME=mmrf-orchestrator-agent`, and
+`OTEL_AWS_APPLICATION_SIGNALS_ENABLED=false`. Deployment `extra_env` values
+can override these defaults. ADOT uses the runtime role and AWS region for
+export; no access keys belong in the image.
+
+CloudWatch Transaction Search must be enabled in the runtime's account and
+region, and the execution role needs the log and X-Ray permissions defined in
+`terraform/agentcore-runtime.tf`. After deploying a new image, invoke with a
+fresh runtime session and verify the agent, model, and tool spans in CloudWatch
+Transaction Search. Existing sessions can keep running the previous image.
+Startup logs alone do not confirm trace export.
+
+`npm test` includes an offline smoke test that runs the real Strands runner
+with a scripted model, preloads ADOT as the container does, and checks that
+agent, model, and tool spans reach the console exporter. It does not verify
+AWS ingestion. Local `npm start` keeps its existing startup behavior; to use
+the container's telemetry bootstrap locally, run:
+
+```sh
+AGENT_OBSERVABILITY_ENABLED=true OTEL_SERVICE_NAME=mmrf-orchestrator-agent \
+  node --env-file-if-exists=.env \
+  --require @aws/aws-distro-opentelemetry-node-autoinstrumentation/register \
+  src/server.mjs
+```
+
 ## Correlation tool contract
 
 `CORRELATION_TOOL_URL` points to the teammate's HTTP tool endpoint. The agent
