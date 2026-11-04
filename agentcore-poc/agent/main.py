@@ -16,6 +16,9 @@ REGION = os.environ["AGENT_REGION"]
 MAX_TOKENS = 1024
 GATEWAY_TIMEOUT_SECONDS = 60
 
+# Don't enable tracing without redacting cohortFilter. Tool spans record the tool call
+# after CohortHooks adds it, so they would hold filters, which can hold case IDs.
+
 SYSTEM_PROMPT = """You help researchers explore the MMRF Virtual Lab, which holds synthetic demonstration data.
 
 Before any tool runs, write a one-line plan. If the question changes who's in the cohort, call update_cohort first, then call the other tools.

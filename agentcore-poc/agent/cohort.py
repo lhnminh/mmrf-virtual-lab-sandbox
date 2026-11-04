@@ -4,10 +4,13 @@ The run's cohort lives in invocation_state, which is per run and never reaches t
 Hooks add the filter to a copy of each tool call and take it out of each tool result.
 The browser gets the new cohort through STATE_SNAPSHOT."""
 import json
+import logging
 import threading
 from collections import OrderedDict
 
 from strands.hooks import AfterToolCallEvent, BeforeToolCallEvent, HookProvider, HookRegistry
+
+logger = logging.getLogger(__name__)
 
 UPDATE_TOOL = "virtual-lab___update_cohort"
 FILTER_INPUT = "cohortFilter"
@@ -59,8 +62,9 @@ def _without_filters(value):
 
 
 def _clean_body(body, revision):
-    clean = {key: value for key, value in body.items() if key != FILTER_RESULT}
-    if isinstance(clean.get("cohort"), dict):
+    """body without a filter at any depth. An object's cohort also gets the revision."""
+    clean = _without_filters(body)
+    if isinstance(clean, dict) and isinstance(clean.get("cohort"), dict):
         shown = {**clean["cohort"], "revision": revision}
         if isinstance(shown.get("label"), str) and _has_case_ids(shown["label"]):
             shown["label"] = HIDDEN_LABEL
@@ -69,18 +73,19 @@ def _clean_body(body, revision):
 
 
 def _text_body(block):
-    """The JSON object in a text block, or None if it doesn't hold one."""
+    """The JSON object or array in a text block, or None if it doesn't hold one."""
     try:
         body = json.loads(block["text"])
     except (KeyError, TypeError, ValueError):
         return None
-    return body if isinstance(body, dict) else None
+    return body if isinstance(body, (dict, list)) else None
 
 
 def _first_body(result):
+    """The first JSON object in the result. Only an object can report a cohort change."""
     for block in result.get("content") or []:
         body = _text_body(block) if isinstance(block, dict) else None
-        if body is not None:
+        if isinstance(body, dict):
             return body
     structured = result.get("structuredContent")
     return structured if isinstance(structured, dict) else None
@@ -91,8 +96,14 @@ def _is_cohort_change(result, body):
             and FILTER_RESULT in body and isinstance(body.get("cohort"), dict))
 
 
+def _is_usable_update(body):
+    """A cohort change, or an outcome like ambiguous. Anything else may have lost a change."""
+    return (body is not None and "status" in body
+            and (body["status"] != "ok" or (FILTER_RESULT in body and isinstance(body.get("cohort"), dict))))
+
+
 def _clean_result(result, revision):
-    """A copy of the tool result for the model. Text that isn't a JSON object stays as it is."""
+    """A copy of the tool result for the model. Text that isn't JSON stays as it is."""
     content = []
     for block in result.get("content") or []:
         body = _text_body(block) if isinstance(block, dict) else None
@@ -101,8 +112,9 @@ def _clean_result(result, revision):
         content.append(block)
     clean = {**result, "content": content}
     if "structuredContent" in clean:
-        structured = _without_filters(clean["structuredContent"])
-        clean["structuredContent"] = _clean_body(structured, revision) if isinstance(structured, dict) else structured
+        clean["structuredContent"] = _clean_body(clean["structuredContent"], revision)
+    if "metadata" in clean:
+        clean["metadata"] = _without_filters(clean["metadata"])
     return clean
 
 
@@ -127,7 +139,12 @@ class CohortHooks(HookProvider):
         result = event.result
         body = _first_body(result)
         revision = _revision(event.invocation_state.get("cohort"))
-        changed = event.tool_use["name"] == UPDATE_TOOL and _is_cohort_change(result, body)
+        is_update = event.tool_use["name"] == UPDATE_TOOL
+        if is_update and not _is_usable_update(body):
+            # Says nothing about the result itself, which could hold a filter.
+            logger.warning("update_cohort result %s has no usable top-level body, so any cohort change is lost",
+                           event.tool_use["toolUseId"])
+        changed = is_update and _is_cohort_change(result, body)
         if changed:
             revision += 1
         event.result = _clean_result(result, revision)

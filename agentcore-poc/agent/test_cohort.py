@@ -2,6 +2,7 @@
 No AWS, no network."""
 import asyncio
 import json
+import logging
 import unittest
 import uuid
 
@@ -126,12 +127,12 @@ class FakeTool(AgentTool):
 
 
 class Harness:
-    def __init__(self, plans, update=lambda tool_input: updated(), tools=None):
+    def __init__(self, plans, update=lambda tool_input: updated(), tools=None, show=shown):
         self.seen = []
         self.model = ScriptedModel(plans)
         template = Agent(
             model=self.model, system_prompt="test", tool_executor=SequentialToolExecutor(), callback_handler=None,
-            tools=tools or [FakeTool(UPDATE_TOOL, update, self.seen), FakeTool(LOLLIPOP_TOOL, shown, self.seen)])
+            tools=tools or [FakeTool(UPDATE_TOOL, update, self.seen), FakeTool(LOLLIPOP_TOOL, show, self.seen)])
         self.template = template  # As in main.py: the adapter needs the template kept alive.
         self.adapter = StrandsAgent(
             agent=template, name="test", hooks=[CohortHooks()],
@@ -234,6 +235,27 @@ class Privacy(unittest.TestCase):
         harness.run("go")
         self.assertEqual(harness.inputs(LOLLIPOP_TOOL)[0]["cohortFilter"], BASE_FILTER)
 
+    def test_nested_filter_in_text_never_reaches_a_model_call(self):
+        def show(tool_input):
+            return {**shown(tool_input), "plot": {"type": "lollipop", "filter": NEW_FILTER,
+                                                  "layers": [{"filter": BASE_FILTER, "gene": "KRAS"}]}}
+
+        harness = Harness({"go": [SHOW_STEP]}, show=show)
+        events = harness.run("go")
+        for call in harness.model.calls:
+            self.assert_clean(call)
+        self.assert_clean(of_type(events, "TOOL_CALL_RESULT")[0]["content"])
+        self.assertEqual(tool_results(events)[0]["plot"], {"type": "lollipop", "layers": [{"gene": "KRAS"}]})
+        self.assertEqual(tool_results(events)[0]["cohort"]["revision"], 5)
+
+    def test_array_shaped_body_is_cleaned(self):
+        harness = Harness({"go": [SHOW_STEP]},
+                          show=lambda i: json.dumps([{"gene": "KRAS", "filter": NEW_FILTER}, [{"filter": BASE_FILTER}], 3]))
+        events = harness.run("go")
+        for call in harness.model.calls:
+            self.assert_clean(call)
+        self.assertEqual(tool_results(events)[0], [{"gene": "KRAS"}, [{}], 3])
+
     def test_real_mcp_tool_gets_the_filter_and_loses_it_in_both_result_forms(self):
         client = FakeMcpClient({**updated(), "cohort": {"label": "L", "caseCount": 334}})
         spec = McpTool(name=UPDATE_TOOL, inputSchema={"type": "object", "properties": {}})
@@ -255,7 +277,7 @@ class FakeMcpClient:
     async def call_tool_async(self, tool_use_id, name, arguments, **kwargs):
         self.arguments = arguments
         return {"status": "success", "toolUseId": tool_use_id, "content": [{"text": json.dumps(self.body)}],
-                "structuredContent": {"nested": self.body, **self.body}}
+                "structuredContent": {"nested": self.body, **self.body}, "metadata": {"nested": self.body}}
 
 
 class Travel(unittest.TestCase):
@@ -286,6 +308,49 @@ class Travel(unittest.TestCase):
                 self.assertEqual(tool_results(events)[0]["status"], body["status"])
                 self.assertNotIn("filter", tool_results(events)[0])
                 self.assertNotIn(NEW_MARKER, json.dumps(events))
+
+    def test_earlier_cohort_change_stays_when_a_later_tool_fails(self):
+        def error_body(tool_input):
+            return {"status": "error", "summary": "It failed.", "step": "unhealthy"}
+
+        def raises(tool_input):
+            raise RuntimeError("no route")
+
+        for name, failing in (("error status", error_body), ("raises", raises)):
+            with self.subTest(failure=name):
+                calls = []
+
+                def show(tool_input):
+                    calls.append(tool_input)
+                    return failing(tool_input) if len(calls) == 1 else shown(tool_input)
+
+                harness = Harness({"go": [UPDATE_STEP, SHOW_STEP, SHOW_STEP]}, show=show)
+                events = harness.run("go")
+                self.assertEqual([i["cohortFilter"] for i in harness.inputs(LOLLIPOP_TOOL)], [NEW_FILTER, NEW_FILTER])
+                self.assertEqual(tool_results(events)[-1]["cohort"]["revision"], 6)
+                final = of_type(events, "STATE_SNAPSHOT")[-1]["snapshot"]["cohort"]
+                self.assertEqual((final["filter"], final["revision"]), (NEW_FILTER, 6))
+
+    def test_update_with_no_usable_body_warns_and_changes_nothing(self):
+        for name, body in (("wrapped", {"result": updated()}), ("array", json.dumps([updated()])),
+                           ("not json", "Tool execution failed: no route"),
+                           ("ok without a filter key", {"status": "ok", "summary": "s", "cohort": {"caseCount": 1}})):
+            with self.subTest(shape=name):
+                harness = Harness({"go": [UPDATE_STEP, SHOW_STEP]}, update=lambda i: body)
+                with self.assertLogs("cohort", level=logging.WARNING) as logs:
+                    events = harness.run("go")
+                self.assertEqual(raised_snapshots(events), [])
+                self.assertEqual(harness.inputs(LOLLIPOP_TOOL)[0]["cohortFilter"], BASE_FILTER)
+                for call in harness.model.calls:
+                    self.assertNotIn(NEW_MARKER, call)
+                self.assertNotIn(NEW_MARKER, "\n".join(logs.output))
+                self.assertNotIn(CASE_MARKER, "\n".join(logs.output))
+
+    def test_usable_update_results_do_not_warn(self):
+        for body in (updated(), AMBIGUOUS, {"status": "error", "summary": "It failed.", "step": "unhealthy"}):
+            with self.subTest(status=body["status"]):
+                with self.assertNoLogs("cohort", level=logging.WARNING):
+                    Harness({"go": [UPDATE_STEP]}, update=lambda i: body).run("go")
 
     def test_null_filter_is_a_valid_new_cohort(self):
         harness = Harness({"go": [UPDATE_STEP, SHOW_STEP]}, update=lambda i: updated(new_filter=None, case_count=1000))
@@ -368,7 +433,8 @@ class Revisions(unittest.TestCase):
 
     def test_result_that_is_not_json_passes_through_unchanged(self):
         harness = Harness({"go": [UPDATE_STEP, SHOW_STEP]}, update=lambda i: "Tool execution failed: no route")
-        events = harness.run("go")
+        with self.assertLogs("cohort", level=logging.WARNING):
+            events = harness.run("go")
         self.assertEqual(tool_results(events)[0], "Tool execution failed: no route")  # The adapter JSON-encodes it.
         self.assertEqual(raised_snapshots(events), [])
         self.assertEqual(harness.inputs(LOLLIPOP_TOOL)[0]["cohortFilter"], BASE_FILTER)
