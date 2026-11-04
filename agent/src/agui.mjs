@@ -4,7 +4,7 @@ import { randomUUID } from 'node:crypto';
 import { createVirtualLabFetch } from './virtual-lab-fetch.mjs';
 import { registeredTools } from './tools/index.mjs';
 import {
-  createKnowledgeGraphClient, KNOWLEDGE_GRAPH_PROMPT, KNOWLEDGE_GRAPH_TOOL_SPECS, modelView,
+  createKnowledgeGraphClient, KNOWLEDGE_GRAPH_PROMPT, modelView,
 } from './knowledge-graph.mjs';
 
 const TOOL_PREFIX = 'virtual-lab___';
@@ -104,15 +104,16 @@ export function conversationFrom(messages) {
   return { prompt: last.text, history: history.map(turn => ({ role: turn.role, content: [{ text: turn.text }] })) };
 }
 
-export function defaultTools({ env = process.env } = {}) {
+export async function defaultTools({ env = process.env, createClient = createKnowledgeGraphClient } = {}) {
   const origin = env.VIRTUAL_LAB_ORIGIN || 'http://127.0.0.1:3080';
   const fetchImpl = createVirtualLabFetch({ origin });
   const tools = registeredTools.filter(item => !REPLACED_TOOLS.has(item.spec.name)).map(item => ({
     spec: item.spec, wireName: TOOL_PREFIX + item.spec.name, execute: item.createExecutor({ origin, fetchImpl }),
   }));
   if (!env.KG_GATEWAY_URL) return tools;
-  const callTool = createKnowledgeGraphClient();
-  return [...tools, ...KNOWLEDGE_GRAPH_TOOL_SPECS.map(spec => ({
+  const callTool = createClient({ url: env.KG_GATEWAY_URL });
+  const specs = await callTool.listTools();
+  return [...tools, ...specs.map(spec => ({
     spec, wireName: KG_PREFIX + spec.name, forModel: modelView,
     execute: async input => ({ status: 'ok', ...await callTool(spec.name, input) }),
   }))];
@@ -143,7 +144,7 @@ export function createAgUiRunner({ tools = null,
     let toolId = null;
     try {
       const { prompt, history } = conversationFrom(input?.messages);
-      const available = tools ?? defaultTools();
+      const available = tools ?? await defaultTools();
       const byName = new Map(available.map(tool => [tool.spec.name, tool]));
       const [{ Agent, tool: toolFactory }, { BedrockModel }] = await Promise.all([loadSdk(), loadBedrock()]);
       const finish = (value, forModel) => {

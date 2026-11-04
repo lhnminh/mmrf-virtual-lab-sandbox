@@ -135,6 +135,13 @@ BASELINES = {
 }
 NAMED_EXPRESSION_GENES = tuple(dict.fromkeys(
     [*BASELINES, *(gene for effects in TRANSLOCATION_EFFECTS.values() for gene in effects), 'FGFR3']))
+# MSigDB MEK_UP.V1_UP / MEK_UP.V1_DN members (CC BY 4.0); see docs/synthetic-data.md.
+MEK_SIGNATURES = Path(__file__).with_name('mek-signatures.tsv')
+# MAPK-active samples: more common with a RAS/RAF mutation, as in myeloma.
+# MAPK-suppressed samples (the rest) de-repress MEK_UP.V1_DN instead.
+MEK_ACTIVE_RATE = {'mutated': .12, 'other': .05}
+MEK_SUPPRESSED_RATE = .08
+MAPK_GENES = {'KRAS', 'NRAS', 'BRAF'}
 REFERENCE_LENGTH = 500000
 CODONS = {
     'A': 'GCT', 'C': 'TGT', 'D': 'GAT', 'E': 'GAA', 'F': 'TTT', 'G': 'GGT',
@@ -293,6 +300,54 @@ def present_markers(case):
             case['cgs_risk_key_criteria']['other_criteria']) if state == 'Present'}
 
 
+def mek_program(symbols, cases, variants, seed):
+    """Return per-sample MEK states and {gene index: log2 shift} for the signature genes.
+
+    A minority of samples is MAPK-active: each raises MEK_UP.V1_UP genes strongly,
+    led by one of three gene modules, and lowers MEK_UP.V1_DN genes. Another
+    minority is MAPK-suppressed: the mirror image, with MEK_UP.V1_DN modules
+    raised. Other samples vary mildly together. Named genes are left to their own
+    programs. The separate random stream leaves every other draw unchanged.
+    """
+    rng = random.Random(seed + 5101)
+    where = {symbol: index for index, symbol in enumerate(symbols)}
+    named = set(NAMED_EXPRESSION_GENES) | set(EXPRESSION_GENES)
+    members = defaultdict(list)
+    for line in MEK_SIGNATURES.read_text().splitlines()[1:]:
+        gene_set, symbol = line.split('\t')
+        if symbol in where and symbol not in named:
+            members[gene_set].append(where[symbol])
+    def modules(genes):
+        """Three modules of unequal size, each gene with its own load."""
+        rng.shuffle(genes)
+        cuts = (0, len(genes) * 4 // 9, len(genes) * 7 // 9, len(genes))
+        return [[(index, rng.uniform(.6, 1.2)) for index in genes[a:b]] for a, b in zip(cuts, cuts[1:])]
+
+    def led_weights():
+        weights = [rng.uniform(0, .5) for _ in range(3)]
+        weights[rng.randrange(3)] = 1
+        return weights
+
+    up, down = modules(members['MEK_UP.V1_UP']), modules(members['MEK_UP.V1_DN'])
+    mutated = {v['case_id'] for v in variants if v['symbol'] in MAPK_GENES}
+    states, shifts = [], []
+    for case in cases:
+        rate = MEK_ACTIVE_RATE['mutated' if case['case_id'] in mutated else 'other']
+        background = rng.gauss(0, .25)
+        amplitude = rng.uniform(1.8, 3.2)
+        draw = rng.random()
+        state = 'active' if draw < rate else 'suppressed' if draw < rate + MEK_SUPPRESSED_RATE else 'neutral'
+        up_weights = led_weights() if state == 'active' else [-.4] * 3 if state == 'suppressed' else [0] * 3
+        down_weights = led_weights() if state == 'suppressed' else [-.6] * 3 if state == 'active' else [0] * 3
+        sample = {}
+        for loads, sign, weights in ((up, 1, up_weights), (down, -1, down_weights)):
+            for module, weight in zip(loads, weights):
+                sample.update((index, load * (sign * background + amplitude * weight)) for index, load in module)
+        states.append(state)
+        shifts.append(sample)
+    return states, shifts
+
+
 def make_expression(out, cases, variants, seed):
     """Simulate RNA-Seq counts for the public gene panel.
 
@@ -352,9 +407,10 @@ def make_expression(out, cases, variants, seed):
         elif location.startswith(('1p32', '1p31')):
             arms['1p32'].append((index, sensitivity))
     biallelic_targets = [where['CDKN2C'], where['FAF1']]
+    mek_rng = random.Random(seed + 5102)
 
     counts = []
-    for case in cases:
+    for case, mek in zip(cases, mek_program(symbols, cases, variants, seed)[1]):
         markers = present_markers(case)
         module = rng.choices([0, 1, 2, 3], weights=[52, 27, 15, 6])[0]
         latent = [rng.gauss(0, .30) for _ in range(4)]
@@ -407,7 +463,12 @@ def make_expression(out, cases, variants, seed):
 
         weights = [2 ** value * length for value, length in zip(values, lengths)]
         scale = library / sum(weights)
-        counts.append([poisson(rng, weight * scale) for weight in weights])
+        sample = [poisson(rng, weight * scale) for weight in weights]
+        # The MEK program is applied after the original draws, from its own stream and
+        # without renormalizing, so every other count matches the fixtures without it.
+        for index, shift in mek.items():
+            sample[index] = poisson(mek_rng, weights[index] * scale * 2 ** shift)
+        counts.append(sample)
 
     with (out / 'counts.tsv.gz').open('wb') as raw, gzip.GzipFile(filename='', mode='wb', fileobj=raw, mtime=0) as handle:
         handle.write(('gene\tgene_id\tlength\t' + '\t'.join(c['sample_id'] for c in cases) + '\n').encode())
@@ -576,7 +637,7 @@ def generate(out, count=1000, seed=42):
     write_json(out / "cases.json", records)
     write_json(out / "files.json", files)
     write_json(out / "variants.json", variants)
-    write_json(out / "provenance.json", {"synthetic": True, "generator_version": 8, "seed": seed,
+    write_json(out / "provenance.json", {"synthetic": True, "generator_version": 9, "seed": seed,
                                          "cases": count, "source": "Seeded synthetic demo scenarios; no patient inputs",
                                          "reference_proteins": {g: p["source"] for g,p in PUBLIC_PROTEINS.items()},
                                          "expression_genes": {"count": len(panel), "symbols": "deterministic sample from the HGNC complete set (CC0)"},

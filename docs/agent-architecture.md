@@ -159,7 +159,16 @@ The new resources go in two files, one per owner: `terraform/agentcore-runtime.t
 Tools today: `correlation_plot` (survival), `top_mutated_genes`,
 `differential_expression`, `update_cohort`, `show_lollipop`, `show_survival`,
 `show_oncomatrix` and `check_virtual_lab_health`. When
-`KG_GATEWAY_URL` is set, the agent also has the knowledge graph tools.
+`KG_GATEWAY_URL` is set, Chat, the prompt API, and the tools catalog discover
+knowledge graph tools through the gateway's MCP `tools/list` on each request.
+Discovery follows pagination and uses the returned descriptions and input
+schemas, so tool additions or schema changes need no app code changes. Only
+tools from the `kg-graph` target are registered; `kg_run_readonly_query` remains
+excluded. Tools must return the existing knowledge graph envelope with a
+nonempty `summary`. Discovery failures fail the request rather than falling
+back to a stale list. The system prompt keeps the evidence and synthetic-data
+rules; tool selection guidance comes from the discovered descriptions.
+The local Virtual Lab analysis tools remain registered in the application.
 
 ## To check before building the AWS parts
 

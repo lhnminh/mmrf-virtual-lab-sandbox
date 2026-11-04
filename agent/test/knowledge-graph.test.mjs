@@ -1,8 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createKnowledgeGraphClient, createKnowledgeGraphTool, knowledgeGraphRegistrations, KNOWLEDGE_GRAPH_TOOL_SPECS, modelView } from '../src/knowledge-graph.mjs';
+import { createKnowledgeGraphClient, createKnowledgeGraphTool, knowledgeGraphRegistrations, modelView } from '../src/knowledge-graph.mjs';
 import { createToolCatalog, toolCatalog, WEBSITE_APPS } from '../src/tool-catalog.mjs';
 import { createStrandsRunner } from '../src/strands-runner.mjs';
+
+const specs = [{ name: 'kg_search_entities', description: 'Search graph entities', inputSchema: { type: 'object', properties: { text: { type: 'string' } }, required: ['text'] } }];
 
 const url = 'https://mmrf-kg-gateway-abc.gateway.bedrock-agentcore.us-west-2.amazonaws.com/mcp';
 const credentials = async () => ({ accessKeyId: 'AKID', secretAccessKey: 'secret' });
@@ -78,26 +80,24 @@ test('the model gets findings without query or trace, and large results are boun
 
 test('a tool records its call for the UI and returns the model view', async () => {
   const calls = [];
-  const tool = createKnowledgeGraphTool({ spec: KNOWLEDGE_GRAPH_TOOL_SPECS[0], toolFactory: value => value, calls,
+  const tool = createKnowledgeGraphTool({ spec: specs[0], toolFactory: value => value, calls,
     callTool: async () => envelope });
   const view = await tool.callback({ text: 'myeloma' });
   assert.equal(view.summary, '1 entity matches');
   assert.equal(calls[0].status, 'success');
   assert.deepEqual(calls[0].result, { summary: '1 entity matches', plot: { type: 'knowledge-graph', ...envelope } });
-  const failed = createKnowledgeGraphTool({ spec: KNOWLEDGE_GRAPH_TOOL_SPECS[0], toolFactory: value => value, calls,
+  const failed = createKnowledgeGraphTool({ spec: specs[0], toolFactory: value => value, calls,
     callTool: async () => { throw new Error('down'); } });
   await assert.rejects(failed.callback({}), /down/);
   assert.equal(calls[1].status, 'error');
 });
 
-test('the four named tools register when enabled, and are absent by default', () => {
-  assert.deepEqual(KNOWLEDGE_GRAPH_TOOL_SPECS.map(spec => spec.name).sort(),
-    ['kg_get_evidence', 'kg_get_mechanism_paths', 'kg_get_phenotypes', 'kg_search_entities']);
+test('discovered tools register when enabled, and are absent by default', async () => {
   assert.equal(toolCatalog.list().some(app => app.id === 'KnowledgeGraph'), false);
   const catalog = createToolCatalog({ apps: [...WEBSITE_APPS, { id: 'KnowledgeGraph', title: 'KG', section: 'Knowledge' }],
-    registrations: knowledgeGraphRegistrations({ callTool: async () => envelope }) });
-  assert.equal(catalog.list({ query: 'kg_get' }).length, 1);
-  assert.equal(catalog.createTools({ toolFactory: value => value, calls: [] }).length, 4);
+    registrations: await knowledgeGraphRegistrations({ callTool: Object.assign(async () => envelope, { listTools: async () => specs }) }) });
+  assert.equal(catalog.list({ query: 'kg_search' }).length, 1);
+  assert.equal(catalog.createTools({ toolFactory: value => value, calls: [] }).length, 1);
 });
 
 test('the system prompt separates knowledge graph findings from synthetic data only when enabled', async () => {
@@ -113,4 +113,62 @@ test('the system prompt separates knowledge graph findings from synthetic data o
   assert.match(prompts[0], /never present knowledge graph findings as results about the synthetic cohort/);
   assert.doesNotMatch(prompts[1], /knowledge graph/);
   assert.deepEqual(limits, [4096, 1024]);
+});
+
+test('discovery reads every page, keeps gateway schemas, and refreshes on the next request', async () => {
+  const requests = [];
+  let generation = 0;
+  const discovered = name => ({ name: `kg-graph___${name}`, description: `Description for ${name}`,
+    inputSchema: { type: 'object', properties: { id: { type: 'string' } }, required: ['id'] } });
+  const client = createKnowledgeGraphClient({ url, credentials, fetchImpl: async (_, init) => {
+    const body = JSON.parse(init.body);
+    requests.push(body);
+    if (!body.params.cursor) {
+      generation++;
+      return reply({ tools: [discovered(`kg_new_${generation}`), discovered('kg_run_readonly_query'),
+        { ...discovered('other'), name: 'other-target___other' }], nextCursor: 'page2' });
+    }
+    return reply({ tools: [discovered('kg_more')] });
+  } });
+  const first = await client.listTools();
+  assert.deepEqual(first.map(tool => tool.name), ['kg_new_1', 'kg_more']);
+  assert.deepEqual(first[0].inputSchema, discovered('kg_new_1').inputSchema);
+  assert.equal(first[0].description, 'Description for kg_new_1');
+  assert.deepEqual(requests.map(body => [body.method, body.params]), [['tools/list', {}], ['tools/list', { cursor: 'page2' }]]);
+  assert.equal((await client.listTools())[0].name, 'kg_new_2');
+});
+
+test('discovery rejects malformed lists, duplicate names, repeated cursors, and gateway failures', async () => {
+  const tool = { name: 'kg-graph___kg_new', inputSchema: { type: 'object' } };
+  for (const result of [{}, { tools: [tool, tool] }, { tools: [{ ...tool, inputSchema: {} }] }]) {
+    const client = createKnowledgeGraphClient({ url, credentials, fetchImpl: async () => reply(result) });
+    await assert.rejects(client.listTools(), /invalid|Invalid/);
+  }
+  const repeated = createKnowledgeGraphClient({ url, credentials,
+    fetchImpl: async () => reply({ tools: [], nextCursor: 'same' }) });
+  await assert.rejects(repeated.listTools(), /cursor/);
+  const failed = createKnowledgeGraphClient({ url, credentials, fetchImpl: async () => new Response('', { status: 403 }) });
+  await assert.rejects(failed.listTools(), /HTTP 403/);
+});
+
+test('discovery negotiates the protocol and reuses it for tool calls', async () => {
+  const sent = [];
+  const client = createKnowledgeGraphClient({ url, credentials, fetchImpl: async (_, init) => {
+    const body = JSON.parse(init.body);
+    const version = init.headers['mcp-protocol-version'];
+    sent.push({ method: body.method, version });
+    if (version !== '2025-06-18') {
+      return new Response(JSON.stringify({ error: { data: { supported: ['2025-06-18'] } } }), { status: 400 });
+    }
+    return reply(body.method === 'tools/list'
+      ? { tools: specs.map(spec => ({ ...spec, name: `kg-graph___${spec.name}` })) }
+      : { content: [{ type: 'text', text: JSON.stringify(envelope) }] });
+  } });
+  assert.deepEqual(await client.listTools(), specs);
+  assert.deepEqual(await client('kg_search_entities', { text: 'myeloma' }), envelope);
+  assert.deepEqual(sent, [
+    { method: 'tools/list', version: undefined },
+    { method: 'tools/list', version: '2025-06-18' },
+    { method: 'tools/call', version: '2025-06-18' },
+  ]);
 });

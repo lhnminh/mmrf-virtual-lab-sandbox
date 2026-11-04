@@ -11,16 +11,8 @@ const MAX_MODEL_CHARS = 20000;
 
 export const KNOWLEDGE_GRAPH_APP = Object.freeze({ id: 'KnowledgeGraph', title: 'Knowledge Graph', section: 'Knowledge' });
 
-// Copied from the gateway target. kg_run_readonly_query is left out on purpose.
-export const KNOWLEDGE_GRAPH_TOOL_SPECS = Object.freeze([
-  {"name": "kg_search_entities", "description": "Find diseases, phenotypes and mechanisms in the knowledge graph by name or exact id. Use first to resolve a plain-language term to a graph id.", "inputSchema": {"type": "object", "properties": {"limit": {"type": "integer", "description": "Maximum entities to return, 1-200 (default 20)"}, "text": {"type": "string", "description": "Name fragment (case-insensitive), or an exact id such as MONDO:0009693 or HP:0000938"}}, "required": ["text"]}},
-  {"name": "kg_get_phenotypes", "description": "Phenotypes recorded for a disease (Monarch has_phenotype associations), with their knowledge sources and publications.", "inputSchema": {"type": "object", "properties": {"disease_id": {"type": "string", "description": "MONDO identifier of the disease, e.g. MONDO:0009693"}, "limit": {"type": "integer", "description": "Maximum associations to return, 1-200 (default 50)"}}, "required": ["disease_id"]}},
-  {"name": "kg_get_mechanism_paths", "description": "DisMech pathophysiology mechanisms for a disease and the causal leads_to edges between them, with the cited evidence for each edge.", "inputSchema": {"type": "object", "properties": {"disease_id": {"type": "string", "description": "MONDO identifier of the disease, e.g. MONDO:0009693"}}, "required": ["disease_id"]}},
-  {"name": "kg_get_evidence", "description": "Evidence for one edge (by the edge id returned in graph.edges[].id), or every edge that cites a reference such as PMID:34201396. Pass exactly one of edge_id or reference.", "inputSchema": {"type": "object", "properties": {"reference": {"type": "string", "description": "Citation or knowledge source, e.g. PMID:34201396 or infores:orphanet"}, "edge_id": {"type": "string", "description": "Edge id from a previous result, e.g. dismech:Clonal Plasma Cell Proliferation|leads_to|Bone Marrow Failure"}}}}
-]);
-
 export const KNOWLEDGE_GRAPH_PROMPT = `You can also query a multiple myeloma knowledge graph (DisMech mechanism paths and Monarch associations) with the kg_ tools.
-Use them for questions about disease mechanisms, phenotypes, and published evidence. Call kg_search_entities first to turn a plain-language term into a graph id.
+Use the available gateway tools and their descriptions for questions about disease mechanisms, phenotypes, and published evidence. Follow their input schemas and resolve identifiers with an available search tool when needed.
 Report observations as recorded facts, interpretation as added explanation, and always state the limitations. Cite identifiers such as PMIDs exactly as returned. Use only what the tools return; do not fill gaps from memory.
 Knowledge graph results come from curated published sources, not from this sandbox's synthetic cases. The statement that all sandbox data are synthetic applies only to the cohort data. Say which source each finding comes from, and never present knowledge graph findings as results about the synthetic cohort. Keep answers concise: a short summary, the key findings with citations, and the limitations. Do not give clinical advice.`;
 
@@ -40,7 +32,7 @@ export function createKnowledgeGraphClient({ url = process.env.KG_GATEWAY_URL, c
   fetchImpl = fetch } = {}) {
   const endpoint = new URL(url);
   const signer = new SignatureV4({ credentials, region: gatewayRegion(endpoint), service: SERVICE, sha256: Sha256 });
-  // The gateway accepts one protocol version, which can change. It names it when it refuses another.
+  // The gateway names the supported protocol version when it refuses another.
   let protocolVersion = null;
 
   async function send(body) {
@@ -59,9 +51,8 @@ export function createKnowledgeGraphClient({ url = process.env.KG_GATEWAY_URL, c
     return typeof version === 'string' && version !== protocolVersion ? version : null;
   }
 
-  return async function callTool(name, input) {
-    const body = JSON.stringify({ jsonrpc: '2.0', id: randomUUID(), method: 'tools/call',
-      params: { name: `${TARGET}___${name}`, arguments: input } });
+  async function request(method, params) {
+    const body = JSON.stringify({ jsonrpc: '2.0', id: randomUUID(), method, params });
     let response = await send(body);
     const version = await supportedVersion(response);
     if (version) {
@@ -71,14 +62,48 @@ export function createKnowledgeGraphClient({ url = process.env.KG_GATEWAY_URL, c
     if (!response.ok) throw new Error(`Knowledge graph gateway returned HTTP ${response.status}`);
     const reply = await response.json();
     if (reply.error) throw new Error(`Knowledge graph gateway error: ${reply.error.message}`);
-    const text = reply.result?.content?.find(item => item.type === 'text')?.text;
-    if (reply.result?.isError) throw new Error(text || 'Knowledge graph tool failed');
-    const envelope = text ? JSON.parse(text) : null;
+    if (!reply.result || typeof reply.result !== 'object') throw new Error('Knowledge graph gateway returned an invalid response');
+    return reply.result;
+  }
+  async function callTool(name, input) {
+    const result = await request('tools/call', { name: `${TARGET}___${name}`, arguments: input });
+    const text = result.content?.find(item => item.type === 'text')?.text;
+    if (result.isError) throw new Error(text || 'Knowledge graph tool failed');
+    const envelope = result.structuredContent ?? (text ? JSON.parse(text) : null);
     if (typeof envelope?.summary !== 'string' || !envelope.summary.trim()) {
       throw new Error('Knowledge graph returned an invalid result');
     }
     return envelope;
+  }
+  callTool.listTools = async () => {
+    const specs = [];
+    const names = new Set();
+    const cursors = new Set();
+    let cursor;
+    do {
+      const result = await request('tools/list', cursor ? { cursor } : {});
+      if (!Array.isArray(result.tools)) throw new Error('Knowledge graph gateway returned an invalid tool list');
+      for (const tool of result.tools) {
+        if (typeof tool.name !== 'string') throw new Error('Gateway tool is missing a name');
+        if (!tool.name.startsWith(`${TARGET}___`)) continue;
+        const name = tool.name.slice(`${TARGET}___`.length);
+        // Preserve the existing exclusion of arbitrary graph queries.
+        if (name === 'kg_run_readonly_query') continue;
+        if (!/^[a-zA-Z0-9_-]{1,64}$/.test(name) || names.has(name) || tool.inputSchema?.type !== 'object') {
+          throw new Error(`Invalid or duplicate gateway tool: ${name}`);
+        }
+        names.add(name);
+        specs.push({ name, description: tool.description || '', inputSchema: tool.inputSchema });
+      }
+      cursor = result.nextCursor;
+      if (cursor != null && (typeof cursor !== 'string' || !cursor || cursors.has(cursor))) {
+        throw new Error('Knowledge graph gateway returned an invalid pagination cursor');
+      }
+      if (cursor) cursors.add(cursor);
+    } while (cursor);
+    return specs;
   };
+  return callTool;
 }
 
 // The envelope's summary alone can omit ids the model needs for its next call,
@@ -112,8 +137,9 @@ export function createKnowledgeGraphTool({ spec, toolFactory, callTool, calls })
   });
 }
 
-export function knowledgeGraphRegistrations({ callTool = createKnowledgeGraphClient() } = {}) {
-  return KNOWLEDGE_GRAPH_TOOL_SPECS.map(spec => ({
+export async function knowledgeGraphRegistrations({ callTool = createKnowledgeGraphClient() } = {}) {
+  const specs = await callTool.listTools();
+  return specs.map(spec => ({
     appId: KNOWLEDGE_GRAPH_APP.id,
     spec,
     create: ({ toolFactory, calls }) => createKnowledgeGraphTool({ spec, toolFactory, callTool, calls }),

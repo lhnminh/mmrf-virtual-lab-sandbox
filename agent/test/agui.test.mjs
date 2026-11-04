@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { cleanResult, cohortFromState, conversationFrom, createAgUiRunner, promptWithCohort } from '../src/agui.mjs';
+import { cleanResult, cohortFromState, conversationFrom, createAgUiRunner, defaultTools, promptWithCohort } from '../src/agui.mjs';
 import { createAgentServer } from '../src/http.mjs';
 
 const FILTER = { and: [{ in: { 'demographic.race': ['asian'] } }] };
@@ -144,4 +144,26 @@ test('the server streams runs as SSE on /invocations and /v1/agui, and keeps JSO
   }
   assert.equal((await (await post('/invocations', { prompt: 'hi' })).json()).message, 'json');
   server.close();
+});
+
+
+test('Chat registers newly discovered gateway tools with descriptions and wire names', async () => {
+  const spec = { name: 'kg_new_capability', description: 'New gateway capability', inputSchema: { type: 'object', properties: {} } };
+  const calls = [];
+  const callTool = Object.assign(async (...args) => { calls.push(args); return { summary: 'Found', graph: { nodes: [] } }; },
+    { listTools: async () => [spec] });
+  const tools = await defaultTools({ env: { KG_GATEWAY_URL: 'https://gateway.example/mcp' }, createClient: () => callTool });
+  const sdk = fakeSdk(async function* (registered) {
+    const tool = registered.find(tool => tool.name === spec.name);
+    assert.equal(tool.description, spec.description);
+    assert.deepEqual(tool.inputSchema, spec.inputSchema);
+    yield toolStart(spec.name, 'new'); yield stop;
+    await tool.callback({});
+  });
+  const events = await collect(createAgUiRunner({ ...sdk, tools }), input());
+  assert.equal(events.find(event => event.type === 'TOOL_CALL_START').toolCallName, 'kg-graph___kg_new_capability');
+  assert.deepEqual(calls, [[spec.name, {}]]);
+  assert.match(sdk.seen.systemPrompt, /available gateway tools and their descriptions/);
+  assert.doesNotMatch(sdk.seen.systemPrompt, /Call kg_search_entities first/);
+  assert.equal(events.at(-1).type, 'RUN_FINISHED');
 });

@@ -38,7 +38,13 @@ export function createAgentServer({ runPrompt, runAgUi, catalog = toolCatalog })
     const path = new URL(req.url, 'http://localhost').pathname;
     if (req.method === 'GET' && path === '/health') return sendJson(res, 200, { status: 'OK' });
     if (req.method === 'GET' && path === '/ping') return sendJson(res, 200, { status: 'Healthy' });
-    if (req.method === 'GET' && path === '/v1/tools') return sendJson(res, 200, { apps: catalog.list() });
+    if (req.method === 'GET' && path === '/v1/tools') {
+      try { return sendJson(res, 200, { apps: await catalog.list() }); }
+      catch (error) {
+        console.error('Tool discovery failed:', error);
+        return sendJson(res, 502, { error: 'Tool discovery failed' });
+      }
+    }
     if (!['/v1/prompts', '/v1/agui', '/invocations'].includes(path)) return sendJson(res, 404, { error: 'Not found' });
     if (req.method !== 'POST') return sendJson(res, 405, { error: 'Method not allowed' });
     if (!/^application\/json(?:;|$)/i.test(req.headers['content-type'] || '')) {
