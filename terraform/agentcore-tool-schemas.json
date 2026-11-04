@@ -177,6 +177,24 @@
     }
   },
   {
+    "name": "show_gene_clustering",
+    "description": "Generates a gene expression clustering heatmap for the researcher's selected cohort. Use it for gene expression clustering, or an expression heatmap. Without geneSet it uses the top 20 variably expressed genes, and it can't use another number. Give geneSet when the researcher names a pathway or gene set, to use that MSigDB set, such as MEK or HALLMARK_HYPOXIA. The result reports the case count and the genes or gene set used, or that a set is unavailable, unclear or not found. The heatmap is drawn for the researcher, and the result holds no clusters or expression values. It never takes a cohort.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "geneSet": {
+          "type": "string",
+          "description": "The pathway or gene set, as the researcher said it, such as MEK or HALLMARK_HYPOXIA. Leave out unless the researcher names one."
+        },
+        "cohortFilterJson": {
+          "type": "string",
+          "description": "Selected website cohort, supplied by the agent"
+        }
+      },
+      "required": []
+    }
+  },
+  {
     "name": "check_virtual_lab_health",
     "description": "Check whether the Virtual Lab is healthy, and report how many synthetic cases it holds. Takes no input.",
     "inputSchema": {

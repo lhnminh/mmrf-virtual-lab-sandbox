@@ -5,11 +5,12 @@ import * as updateCohort from './update-cohort/index.mjs';
 import * as showLollipop from './show-lollipop/index.mjs';
 import * as showSurvival from './show-survival/index.mjs';
 import * as showOncomatrix from './show-oncomatrix/index.mjs';
+import * as showGeneClustering from './show-gene-clustering/index.mjs';
 import * as checkHealth from './check-health/index.mjs';
 
 // Add one import and one entry for each tool. Gateway and Lambda use this list.
 export const registeredTools = [correlationPlot, topMutatedGenes, differentialExpression, updateCohort,
-  showLollipop, showSurvival, showOncomatrix, checkHealth];
+  showLollipop, showSurvival, showOncomatrix, showGeneClustering, checkHealth];
 
 export function createExecutors(deps = {}) {
   return Object.fromEntries(registeredTools.map(item => [item.spec.name, item.createExecutor(deps)]));
