@@ -1,0 +1,4 @@
+build/
+*.zip
+.venv/
+!terraform/tests/fixtures/*.zip
