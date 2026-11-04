@@ -8,7 +8,6 @@ const SERVICE = 'bedrock-agentcore';
 const TARGET = 'kg-graph';
 const TIMEOUT_MS = 60000;
 const MAX_MODEL_CHARS = 20000;
-const MCP_PROTOCOL_VERSION = '2025-06-18'; // The only version the gateway accepts.
 
 export const KNOWLEDGE_GRAPH_APP = Object.freeze({ id: 'KnowledgeGraph', title: 'Knowledge Graph', section: 'Knowledge' });
 
@@ -33,15 +32,33 @@ export function createKnowledgeGraphClient({ url = process.env.KG_GATEWAY_URL, c
   fetchImpl = fetch } = {}) {
   const endpoint = new URL(url);
   const signer = new SignatureV4({ credentials, region: gatewayRegion(endpoint), service: SERVICE, sha256: Sha256 });
-  async function request(method, params) {
-    const body = JSON.stringify({ jsonrpc: '2.0', id: randomUUID(), method, params });
+  // The gateway names the supported protocol version when it refuses another.
+  let protocolVersion = null;
+
+  async function send(body) {
     const signed = await signer.sign({
       method: 'POST', protocol: endpoint.protocol, hostname: endpoint.hostname, path: endpoint.pathname, body,
       headers: { accept: 'application/json', 'content-type': 'application/json', host: endpoint.host,
-        'mcp-protocol-version': MCP_PROTOCOL_VERSION },
+        ...(protocolVersion ? { 'mcp-protocol-version': protocolVersion } : {}) },
     });
-    const response = await fetchImpl(endpoint, { method: 'POST', headers: signed.headers, body,
+    return fetchImpl(endpoint, { method: 'POST', headers: signed.headers, body,
       signal: AbortSignal.timeout(TIMEOUT_MS), redirect: 'error' });
+  }
+
+  async function supportedVersion(response) {
+    if (response.status !== 400) return null;
+    const version = (await response.clone().json().catch(() => null))?.error?.data?.supported?.[0];
+    return typeof version === 'string' && version !== protocolVersion ? version : null;
+  }
+
+  async function request(method, params) {
+    const body = JSON.stringify({ jsonrpc: '2.0', id: randomUUID(), method, params });
+    let response = await send(body);
+    const version = await supportedVersion(response);
+    if (version) {
+      protocolVersion = version;
+      response = await send(body);
+    }
     if (!response.ok) throw new Error(`Knowledge graph gateway returned HTTP ${response.status}`);
     const reply = await response.json();
     if (reply.error) throw new Error(`Knowledge graph gateway error: ${reply.error.message}`);
