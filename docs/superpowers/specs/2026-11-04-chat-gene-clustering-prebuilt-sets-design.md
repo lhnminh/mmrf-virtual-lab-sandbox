@@ -57,7 +57,7 @@ The user confirmed these are the prebuilt sets they were waiting for. Neither is
 2. Read `/protein-paint/genomes` on every call. No `genomes.hg38.termdbs.msigdb` returns `prebuilt_unavailable`.
 3. Resolve the name:
    - "MEK", "MEK pathway", "MEK gene set" and "MEK signature", in any case, mean `MEK_UP.V1_UP`.
-   - Otherwise search with `findterm` on the `msigdb` dslabel. An exact match on a set's ID wins. One result is used. Several return `ambiguous`, with up to 5 options. None returns `gene_set_not_found`.
+   - Otherwise search with `findterm` on the `msigdb` dslabel. An exact match on a set's ID wins. One result is used. Several return `ambiguous`, with the total and up to 5 options. None returns `gene_set_not_found`.
 4. Read the genes with `genesetByTermId`.
 5. A set over the size limit returns `gene_set_too_large`. An empty set returns `no_data`.
 
@@ -109,14 +109,24 @@ The numbers are examples. The 195 comes from the PR's description. The sentences
 
 ## Stack
 
-The user limited the rollout to the images needed for testing: `frontend`, `proteinpaint` and the agent.
+Deployed on 2026-11-04 from `d3df43c`: `frontend`, `proteinpaint`, `identity` and `seed` rebuilt together, and the live data is on generator version 9. `scripts/smoke.py` passes, including `MEK_UP.V1_UP has 92 of 195 genes in the expression panel`. PR #21's MEK program is on the stack.
 
-- **Merge:** PRs #20 and #21 are on the fork's `main`, at `d3df43c`.
-- **`proteinpaint`:** built from the fork before PR #21 plus PR #20 alone. It has MSigDB, and its fixtures stay at generator version 8, matching the live `identity`, `seed` and Elasticsearch. Its `provenance.json` hash was compared with the live pod's.
-- **No reseed:** `identity`, `seed`, `guppy` and `analysis` aren't rebuilt.
-- **Not on the live stack:** PR #21's MEK program. Heatmaps show the real sets, on data without the designed MEK blocks. Adding it means rebuilding `identity`, `seed` and `proteinpaint` together.
-- **Mismatch with `main`:** a launcher rebuild from `main` produces generator version 9. A launcher deploy that rebuilds only some of those three images would mix versions, so it must rebuild all three.
-- **Cost:** the `proteinpaint` image grows by about 566 MB.
+## Measured replies
+
+On the deployed site, 2026-11-04:
+
+| Call | Result | Time |
+| --- | --- | --- |
+| `findterm=MEK` or `MEK_UP` | 2 sets: `MEK_UP.V1_DN` and `MEK_UP.V1_UP` | 0.2 s |
+| `findterm=mek_up.v1_up` | 1 set. The search ignores case | 0.1 s |
+| `findterm=hypoxia` | 57 sets | 0.2 s |
+| `findterm=HALLMARK_HYPOXIA` | 1 set | 0.2 s |
+| `findterm=MEK and hypoxia`, `xyzzy` | Empty `lst` | 0.1 s |
+| `genesetByTermId=MEK_UP.V1_UP` | A list of 195 objects with `symbol`, 21 KB | 0.2 s |
+| `genesetByTermId=MEK_UP.V1_DN`, `HALLMARK_HYPOXIA` | 194 and 200 objects | 0.2 s |
+| `genesetByTermId` with an unknown ID | A reply that isn't JSON | |
+
+Every term returned had `isleaf: true`. The chart's time with a set this size is still to be measured.
 
 ## Acceptance checks
 
@@ -152,10 +162,6 @@ PR #21's MEK blocks aren't checked, because they aren't on this stack.
 
 ## Unknowns to confirm while building
 
-- **`findterm` results:** how many sets a plain "MEK" or "hypoxia" search returns, and whether group terms come back alongside sets. The Lambda only uses sets.
-- **Reply shapes:** taken from `scripts/smoke.py`, not yet seen live. `genesetByTermId` returns a list, which the client's `_get` rejects today.
-- **Time limits:** whether these calls fit the Lambda's 20 second timeout on the deployed site.
-- **Seeding on AWS:** how the Helm seed job treats generator version 9. This matters only when PR #21's data is deployed.
 - **Chart limit:** whether a list this size draws through the route the top 20 uses. It's read from ProteinPaint's code, and hasn't been run.
 
 ## Sources

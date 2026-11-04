@@ -9,6 +9,7 @@ import urllib.request
 HTTP_TIMEOUT_SECONDS = 20
 _NAME = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 _GENOME = {"genome": "hg38", "dslabel": "MMRF"}
+_GENE_SETS = {"dslabel": "msigdb"}
 _SURVIVAL_COLUMNS = ("seriesId", "time", "survival", "nevent", "ncensor", "nrisk")
 
 
@@ -46,13 +47,17 @@ class VirtualLabClient:
         return self._send(urllib.request.Request(
             self._origin + path, data=json.dumps(body).encode(), headers=self._headers, method="POST"))
 
-    def _get(self, path, query):
-        """GET a ProteinPaint route. Some, such as termdb/config, don't accept POST."""
+    def _fetch(self, path, query):
+        """GET a ProteinPaint route, returning whatever JSON it sends."""
         values = {name: value if isinstance(value, str) else json.dumps(value)
                   for name, value in {**_GENOME, **query}.items()}
-        reply = self._send(urllib.request.Request(
+        return self._send(urllib.request.Request(
             f"{self._origin}/protein-paint/{path}?{urllib.parse.urlencode(values)}",
             headers=self._headers, method="GET"))
+
+    def _get(self, path, query):
+        """GET a ProteinPaint route. Some, such as termdb/config, don't accept POST."""
+        reply = self._fetch(path, query)
         if not isinstance(reply, dict):
             raise ClientError("unhealthy", "The Virtual Lab sent an unexpected response.")
         return reply
@@ -122,6 +127,28 @@ class VirtualLabClient:
             return [gene if isinstance(gene, str) else gene["gene"] for gene in reply["genes"]]
         except (KeyError, TypeError):
             raise ClientError("unhealthy", "The ranked genes were missing.") from None
+
+    def has_gene_sets(self):
+        """Read each time, so a stack gains prebuilt sets as soon as MSigDB is added."""
+        reply = self._get("genomes", {})
+        try:
+            return bool((reply["genomes"]["hg38"].get("termdbs") or {}).get("msigdb"))
+        except (KeyError, AttributeError, TypeError):
+            raise ClientError("unhealthy", "The genome list was missing.") from None
+
+    def find_gene_sets(self, text):
+        reply = self._get("termdb", {**_GENE_SETS, "findterm": text, "targetType": "Dictionary Variables"})
+        try:
+            return [term["id"] for term in reply["lst"] if term.get("isleaf")]
+        except (KeyError, TypeError, AttributeError):
+            raise ClientError("unhealthy", "The gene set search failed.") from None
+
+    def gene_set_genes(self, term_id):
+        reply = self._fetch("termdb", {**_GENE_SETS, "genesetByTermId": term_id})
+        try:
+            return [gene["symbol"] for gene in reply]
+        except (KeyError, TypeError):
+            raise ClientError("unhealthy", "The gene set's genes were missing.") from None
 
     def lookup_gene(self, name):
         reply = self._paint("genelookup", {"input": name, "deep": 1})

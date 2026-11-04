@@ -97,6 +97,53 @@ class Queries(unittest.TestCase):
         self.assertEqual(body["filter0"], COHORT)
         self.assertEqual(body["maxGenes"], 2)
 
+    def test_has_gene_sets_reads_the_genome(self):
+        client, opener = make({"genomes": {"hg38": {"termdbs": {"msigdb": {"label": "MSigDB"}}}}})
+        self.assertTrue(client.has_gene_sets())
+        self.assertEqual(urllib.parse.urlsplit(opener.requests[-1].full_url).path, "/protein-paint/genomes")
+
+    def test_has_no_gene_sets(self):
+        for reply in ({"genomes": {"hg38": {}}}, {"genomes": {"hg38": {"termdbs": {}}}}):
+            client, _ = make(reply)
+            self.assertFalse(client.has_gene_sets())
+
+    def test_unreadable_genomes_is_unhealthy(self):
+        client, _ = make({})
+        with self.assertRaises(ClientError) as caught:
+            client.has_gene_sets()
+        self.assertEqual(caught.exception.step, "unhealthy")
+
+    def test_find_gene_sets_uses_the_msigdb_dslabel(self):
+        client, opener = make({"lst": [{"id": "A", "isleaf": True}, {"id": "GROUP", "isleaf": False}]})
+        self.assertEqual(client.find_gene_sets("MEK_UP"), ["A"])
+        query = urllib.parse.parse_qs(urllib.parse.urlsplit(opener.requests[-1].full_url).query)
+        self.assertEqual(query["dslabel"], ["msigdb"])
+        self.assertEqual(query["findterm"], ["MEK_UP"])
+        self.assertEqual(query["targetType"], ["Dictionary Variables"])
+        self.assertEqual(urllib.parse.urlsplit(opener.requests[-1].full_url).path, "/protein-paint/termdb")
+
+    def test_find_gene_sets_without_a_list_is_unhealthy(self):
+        client, _ = make({"error": "topVEgene"})
+        with self.assertRaises(ClientError) as caught:
+            client.find_gene_sets("MEK")
+        self.assertEqual(caught.exception.step, "unhealthy")
+        self.assertNotIn("topVEgene", str(caught.exception))
+
+    def test_gene_set_genes_accepts_a_list_reply(self):
+        client, opener = make([{"symbol": "DUSP4"}, {"symbol": "ETV5"}])
+        self.assertEqual(client.gene_set_genes("MEK_UP.V1_UP"), ["DUSP4", "ETV5"])
+        query = urllib.parse.parse_qs(urllib.parse.urlsplit(opener.requests[-1].full_url).query)
+        self.assertEqual(query["genesetByTermId"], ["MEK_UP.V1_UP"])
+        self.assertEqual(query["dslabel"], ["msigdb"])
+
+    def test_an_unreadable_gene_set_is_unhealthy(self):
+        for reply in ({"error": "secret"}, [{"name": "no symbol"}]):
+            client, _ = make(reply)
+            with self.assertRaises(ClientError) as caught:
+                client.gene_set_genes("X")
+            self.assertEqual(caught.exception.step, "unhealthy")
+            self.assertNotIn("secret", str(caught.exception))
+
     def test_top_variable_genes_sends_a_get_with_filter0(self):
         client, opener = make({"genes": ["IGLC2", "IGKC"]})
         self.assertEqual(client.top_variable_genes(COHORT, 20), ["IGLC2", "IGKC"])
