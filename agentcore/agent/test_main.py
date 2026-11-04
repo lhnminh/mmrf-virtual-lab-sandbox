@@ -75,6 +75,13 @@ class SystemPrompt(unittest.TestCase):
             with self.subTest(words=words):
                 self.assertIn(words, main.SYSTEM_PROMPT)
 
+    def test_limits_what_a_heatmap_answer_says(self):
+        for words in ("show_gene_clustering", "Never describe clusters or expression patterns",
+                      "what they mean for treatment", "only the top 20 variably expressed genes",
+                      "Never invent a gene list"):
+            with self.subTest(words=words):
+                self.assertIn(words, main.SYSTEM_PROMPT)
+
     def test_numbers_keep_the_summary_unit(self):
         self.assertIn("with the unit the summary gives it", main.SYSTEM_PROMPT)
 
