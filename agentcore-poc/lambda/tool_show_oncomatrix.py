@@ -29,7 +29,8 @@ def show_oncomatrix(args, client):
         case_count = client.case_count(cohort_filter)
         ranking = client.top_genes(cohort_filter, max(DEFAULT_GENES, max_genes or 0))
         samples = set()
-        for gene, _ in ranking:
+        shown = ranking[:max_genes] if max_genes else ranking
+        for gene, _ in shown:
             gene_info = client.lookup_gene(gene)
             if gene_info is None:
                 raise ClientError("unhealthy", f"The gene lookup had no match for {gene}.")
@@ -41,12 +42,11 @@ def show_oncomatrix(args, client):
     if not ranking:
         return outcome("no_data", f"None of the {case_count} cases in this cohort has mutation data.",
                        caseCount=case_count, cohort=cohort)
-    shown = ranking[:max_genes] if max_genes else ranking
     genes = [{"gene": gene, "count": count} for gene, count in shown]
     plot = {"type": "oncomatrix"}
     if max_genes:
         plot["maxGenes"] = max_genes
     listing = ", ".join(f"{g['gene']} ({g['count']} samples)" for g in genes)
-    return ok(f"{case_count} cases, {len(samples)} samples with mutation data. "
+    return ok(f"{case_count} cases, {len(samples)} samples with a mutation in these genes. "
               f"{listing} are the most frequently mutated.",
               genes=genes, caseCount=case_count, sampleCount=len(samples), cohort=cohort, plot=plot)

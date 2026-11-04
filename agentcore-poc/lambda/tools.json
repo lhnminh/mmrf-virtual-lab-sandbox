@@ -49,7 +49,7 @@
   },
   {
     "name": "show_oncomatrix",
-    "description": "Shows which genes are most frequently mutated in the researcher's selected cohort, in OncoMatrix, with the number of cases and of samples with mutation data. Use it for questions such as 'which genes are most frequently mutated', 'top mutated genes' or 'show an OncoMatrix'. maxGenes is optional, for requests such as 'top 3'; it must be a whole number of 1 or more. It never takes a cohort, and only reports numbers; the chart is drawn for the researcher.",
+    "description": "Shows which genes are most frequently mutated in the researcher's selected cohort, in OncoMatrix, with the number of cases and of samples with a mutation in the genes shown. Use it for questions such as 'which genes are most frequently mutated', 'top mutated genes' or 'show an OncoMatrix'. maxGenes is optional, for requests such as 'top 3'; it must be a whole number of 1 or more. It never takes a cohort, and only reports numbers; the chart is drawn for the researcher.",
     "inputSchema": {
       "type": "object",
       "properties": {

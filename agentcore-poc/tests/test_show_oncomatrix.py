@@ -61,11 +61,12 @@ class ShowOncomatrix(unittest.TestCase):
     def test_samples_are_the_union_across_genes(self):
         self.assertEqual(run()["sampleCount"], 6)
 
-    def test_max_genes_limits_ranking_but_not_sample_count(self):
+    def test_max_genes_counts_only_samples_of_the_genes_shown(self):
         client = FakeClient()
         r = run({"maxGenes": 3}, client)
         self.assertEqual([g["gene"] for g in r["genes"]], ["KRAS", "NRAS", "DIS3"])
-        self.assertEqual(r["sampleCount"], 6)
+        self.assertEqual(r["sampleCount"], 5)  # TP53's S-6 is not drawn.
+        self.assertIn("5 samples with a mutation in these genes", r["summary"])
         self.assertEqual(r["plot"], {"type": "oncomatrix", "maxGenes": 3})
         self.assertGreaterEqual(client.top_calls[0], 50)
         self.assertNotIn("TP53", r["summary"])
@@ -113,7 +114,7 @@ class ShowOncomatrix(unittest.TestCase):
             self.assertIn(str(n), r["summary"])
         self.assertEqual(
             r["summary"],
-            "334 cases, 6 samples with mutation data. KRAS (148 samples), NRAS (113 samples), "
+            "334 cases, 6 samples with a mutation in these genes. KRAS (148 samples), NRAS (113 samples), "
             "DIS3 (100 samples), TP53 (60 samples) are the most frequently mutated.")
 
     def test_gene_counts_use_the_same_unit_as_show_lollipop(self):
