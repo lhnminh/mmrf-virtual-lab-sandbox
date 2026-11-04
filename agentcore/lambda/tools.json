@@ -89,5 +89,14 @@
       },
       "required": []
     }
+  },
+  {
+    "name": "show_gene_clustering",
+    "description": "Generates a gene expression clustering heatmap for the researcher's selected cohort, using the top 20 variably expressed genes. Use it for gene expression clustering, an expression heatmap, or the most variably expressed genes. It always uses the top 20, and can't take another number or a named gene set. The result reports the case count and the genes on the heatmap. The heatmap is drawn for the researcher, and the result holds no clusters or expression values. It never takes a cohort.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {},
+      "required": []
+    }
   }
 ]

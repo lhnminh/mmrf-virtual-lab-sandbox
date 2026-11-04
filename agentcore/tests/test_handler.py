@@ -79,6 +79,9 @@ class ClientToolRouting(unittest.TestCase):
     def test_show_survival_is_a_client_tool(self):
         self.assertIn("show_survival", tool.CLIENT_TOOLS)
 
+    def test_show_gene_clustering_is_a_client_tool(self):
+        self.assertIn("show_gene_clustering", tool.CLIENT_TOOLS)
+
 
 class Health(unittest.TestCase):
     def test_healthy(self):

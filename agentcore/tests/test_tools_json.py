@@ -46,6 +46,14 @@ class ToolsJson(unittest.TestCase):
         self.assertIn("compareBy", tool["inputSchema"]["properties"])
         self.assertNotIn("compareBy", tool["inputSchema"].get("required", []))
 
+    def test_show_gene_clustering_takes_no_inputs_and_can_be_selected(self):
+        tool = next(tool for tool in TOOLS if tool["name"] == "show_gene_clustering")
+        self.assertEqual(tool["inputSchema"]["properties"], {})
+        self.assertEqual(tool["inputSchema"].get("required", []), [])
+        for words in ("gene expression clustering", "heatmap", "top 20", "no clusters or expression values"):
+            with self.subTest(words=words):
+                self.assertIn(words, tool["description"])
+
 
 if __name__ == "__main__":
     unittest.main()
