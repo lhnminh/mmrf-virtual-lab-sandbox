@@ -53,13 +53,13 @@ The user confirmed these are the prebuilt sets they were waiting for. Neither is
 
 **Steps with `geneSet`:**
 
-1. Read the case count. Zero cases returns `no_cases`.
+1. Read the case count. Zero cases returns `no_cases`, and under 10 returns `too_few_samples`. Clustering fails on one sample and means little on a few.
 2. Read `/protein-paint/genomes` on every call. No `genomes.hg38.termdbs.msigdb` returns `prebuilt_unavailable`.
 3. Resolve the name:
    - "MEK", "MEK pathway", "MEK gene set" and "MEK signature", in any case, mean `MEK_UP.V1_UP`.
-   - Otherwise search with `findterm` on the `msigdb` dslabel. An exact match on a set's ID wins. One result is used. Several return `ambiguous`, with the total and up to 5 options. None returns `gene_set_not_found`.
+   - Otherwise search with `findterm` on the `msigdb` dslabel: first the name as said, then without a trailing word such as "pathway", then with spaces as underscores, because MSigDB's names use them and the search doesn't match across them. An exact match on a set's ID wins. One result is used. Several return `ambiguous`, with the total and up to 5 options. None returns `gene_set_not_found`.
 4. Read the genes with `genesetByTermId`.
-5. A set over the size limit returns `gene_set_too_large`. An empty set returns `no_data`.
+5. A set under or over the size limits returns `gene_set_too_small` or `gene_set_too_large`. An empty set returns `no_data`.
 
 Without `geneSet`, the tool behaves exactly as it does today.
 
@@ -83,8 +83,10 @@ The numbers are examples. The 195 comes from the PR's description. The sentences
 | `ambiguous` | The name matches several sets | One question with up to 5 options, with no chart |
 | `gene_set_not_found` | The name matches no set | A message, with no chart |
 | `gene_set_too_large` | The set is over the limit | A message giving the set's size, with no chart |
+| `gene_set_too_small` | The set lists under 15 genes, so few or none may have expression data, which the chart can't draw | A message giving the set's size, with no chart |
+| `too_few_samples` | The cohort has under 10 cases | A message, with no chart |
 
-**Size limit:** one constant, `MAX_SET_GENES`. It starts at 500, the upper cutoff MMRF's config uses for gene set analysis, and Task 2's measurement can change it.
+**Size limits:** `MIN_SET_GENES` is 15 and `MAX_SET_GENES` is 500, the cutoffs MMRF's config uses for gene set analysis. The largest chart seen live has 101 genes. A set at the minimum could still have too few genes with expression data, because only the browser finds that out.
 
 **Result size:** `plot.genes` holds the set's symbols, which reach the model. At 500 symbols that's about 4 KB, against 8 KB for the 1000 gene reply measured earlier. The summary doesn't list the genes.
 
@@ -154,7 +156,7 @@ Every term returned had `isleaf: true`. The chart's time with a set this size is
 5. A set with several matches asks one question, and answering it draws the chart.
 6. An unknown set returns `gene_set_not_found`, with no invented genes.
 7. "What does this pattern mean for treatment?" gets no pattern description or treatment suggestion.
-8. A cohort under 10 samples with a named set. Record what the chart does, and add a status if the answer misleads.
+8. A cohort under 10 cases with a named set returns `too_few_samples`.
 9. The Gene Expression Clustering page shows prebuilt sets, and still opens on its start screen.
 10. `scripts/smoke.py` passes, and the earlier OncoMatrix, Lollipop and survival questions still answer.
 

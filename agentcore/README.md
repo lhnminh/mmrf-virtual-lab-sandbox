@@ -207,7 +207,7 @@ Run on 2026-11-04 through the Chrome DevTools MCP, on the deployed site with the
 | Gene Expression Clustering page | Opens on its start screen with 1000, and Prebuilt now offers MSigDB |
 | OncoMatrix, Lollipop, survival and health questions | Answer through `scripts/invoke.py`. `scripts/smoke.py` passes |
 
-Not checked: a named set on a cohort under 10 samples, because the prompt tried couldn't build one. `prebuilt_unavailable`, `gene_set_too_large` and `no_data` are covered by unit tests only.
+Not seen live: `too_few_samples` on a named set, because the prompt tried couldn't build a cohort that small. `prebuilt_unavailable`, `gene_set_too_small`, `gene_set_too_large` and `no_data` are covered by unit tests only.
 
 Generator version 9 changed the synthetic numbers. Survival by CGS risk is now High risk 339 cases, median 3.14 years, and Standard risk 661 cases, median 9.08 years. Compare with these, not the earlier survival table.
 

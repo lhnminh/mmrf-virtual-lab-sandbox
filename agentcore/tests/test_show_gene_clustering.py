@@ -4,20 +4,21 @@ import sys
 import unittest
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1] / "lambda"))
-from tool_show_gene_clustering import MAX_SET_GENES, show_gene_clustering  # noqa: E402
+from tool_show_gene_clustering import MAX_SET_GENES, MIN_SET_GENES, show_gene_clustering  # noqa: E402
 from virtual_lab_client import ClientError  # noqa: E402
 
 RACE_BLACK = {"and": [{"in": {"demographic.race": ["black or african american"]}}]}
 GENES = [f"GENE{number}" for number in range(1, 21)]
-SET_GENES = ["DUSP4", "ETV5", "SPRY2"]
+SET_GENES = [f"SETGENE{number}" for number in range(1, 21)]
 
 
 class FakeClient:
     def __init__(self, genes=GENES, cases=334, count_error=None, genes_error=None, has_sets=True,
-                 found=("HALLMARK_HYPOXIA",), set_genes=SET_GENES, find_error=None):
+                 found=("HALLMARK_HYPOXIA",), set_genes=SET_GENES, find_error=None, found_by=None):
         self.genes, self.cases = genes, cases
         self.count_error, self.genes_error = count_error, genes_error
         self.has_sets, self.found, self.set_genes, self.find_error = has_sets, list(found), set_genes, find_error
+        self.found_by = found_by
         self.top_calls, self.find_calls, self.set_calls = [], [], []
         self.availability_checks = 0
 
@@ -40,7 +41,7 @@ class FakeClient:
         self.find_calls.append(text)
         if self.find_error:
             raise self.find_error
-        return self.found
+        return self.found if self.found_by is None else self.found_by.get(text, [])
 
     def gene_set_genes(self, term_id):
         self.set_calls.append(term_id)
@@ -110,13 +111,13 @@ class NamedGeneSet(unittest.TestCase):
                 client = FakeClient()
                 r = run(client, geneSet=name)
                 self.assertEqual(r["status"], "ok")
-                self.assertEqual(r["geneSet"], {"id": "MEK_UP.V1_UP", "geneCount": 3})
+                self.assertEqual(r["geneSet"], {"id": "MEK_UP.V1_UP", "geneCount": 20})
                 self.assertEqual(r["plot"], {"type": "gene_clustering", "genes": SET_GENES})
                 self.assertEqual(client.find_calls, [])
                 self.assertEqual(client.set_calls, ["MEK_UP.V1_UP"])
                 self.assertIn("MEK_UP.V1_UP, chosen for MEK", r["summary"])
                 self.assertIn("MEK_UP.V1_DN is also available", r["summary"])
-                self.assertIn("lists 3 genes", r["summary"])
+                self.assertIn("lists 20 genes", r["summary"])
                 self.assertIn("only those with expression data", r["summary"])
                 self.assertIn("red means high relative to the other samples", r["summary"])
                 self.assertNotIn(SET_GENES[0], r["summary"])
@@ -216,6 +217,55 @@ class NamedGeneSet(unittest.TestCase):
         r = run(FakeClient(find_error=ClientError("unhealthy", "x")), geneSet="hypoxia")
         self.assertEqual((r["status"], r["step"]), ("error", "unhealthy"))
         self.assertNotIn("plot", r)
+
+    def test_a_name_with_spaces_finds_the_underscored_set(self):
+        client = FakeClient(found_by={"HALLMARK_HYPOXIA": ["HALLMARK_HYPOXIA"], "hallmark_hypoxia": ["HALLMARK_HYPOXIA"]})
+        r = run(client, geneSet="hallmark hypoxia")
+        self.assertEqual(r["status"], "ok")
+        self.assertEqual(r["geneSet"]["id"], "HALLMARK_HYPOXIA")
+        self.assertEqual(client.find_calls, ["hallmark hypoxia", "hallmark_hypoxia"])
+
+    def test_a_spaced_name_can_be_ambiguous(self):
+        found = ["HALLMARK_KRAS_SIGNALING_DN", "HALLMARK_KRAS_SIGNALING_UP"]
+        r = run(FakeClient(found_by={"KRAS_signaling": found}), geneSet="KRAS signaling")
+        self.assertEqual((r["status"], r["options"]), ("ambiguous", found))
+
+    def test_a_trailing_descriptor_is_ignored(self):
+        for name in ("hypoxia pathway", "hypoxia gene set", "hypoxia signature", "hypoxia set"):
+            with self.subTest(name=name):
+                r = run(FakeClient(found_by={"hypoxia": ["HALLMARK_HYPOXIA"]}), geneSet=name)
+                self.assertEqual(r["geneSet"]["id"], "HALLMARK_HYPOXIA")
+
+    def test_an_exact_id_wins_after_underscoring(self):
+        r = run(FakeClient(found_by={"hallmark_hypoxia": ["HALLMARK_HYPOXIA", "HALLMARK_HYPOXIA_DN"]}),
+                geneSet="hallmark hypoxia")
+        self.assertEqual(r["geneSet"]["id"], "HALLMARK_HYPOXIA")
+
+    def test_a_name_no_form_of_matches_is_not_found_and_keeps_its_wording(self):
+        r = run(FakeClient(found_by={}), geneSet="MEK and hypoxia")
+        self.assertEqual(r["status"], "gene_set_not_found")
+        self.assertIn("MEK and hypoxia", r["summary"])
+
+    def test_a_named_set_on_a_small_cohort_has_too_few_samples(self):
+        client = FakeClient(cases=9)
+        r = run(client, geneSet="MEK")
+        self.assertEqual(r["status"], "too_few_samples")
+        self.assertIn("at least 10 samples", r["summary"])
+        self.assertEqual((client.availability_checks, client.set_calls), (0, []))
+        self.assertNotIn("plot", r)
+
+    def test_a_named_set_on_ten_cases_is_drawn(self):
+        self.assertEqual(run(FakeClient(cases=10), geneSet="MEK")["status"], "ok")
+
+    def test_a_small_set_is_refused(self):
+        r = run(FakeClient(set_genes=[f"G{n}" for n in range(MIN_SET_GENES - 1)]), geneSet="HALLMARK_HYPOXIA")
+        self.assertEqual(r["status"], "gene_set_too_small")
+        self.assertIn(str(MIN_SET_GENES - 1), r["summary"])
+        self.assertNotIn("plot", r)
+
+    def test_a_set_at_the_minimum_is_drawn(self):
+        r = run(FakeClient(set_genes=[f"G{n}" for n in range(MIN_SET_GENES)]), geneSet="HALLMARK_HYPOXIA")
+        self.assertEqual(r["status"], "ok")
 
 
 if __name__ == "__main__":
