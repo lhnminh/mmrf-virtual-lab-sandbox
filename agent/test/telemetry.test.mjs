@@ -5,7 +5,7 @@ import { execFile } from 'node:child_process';
 
 const execFileAsync = promisify(execFile);
 
-test('ADOT exports native Strands agent, model and tool spans from ESM', async () => {
+test('ADOT exports native Strands spans from both JSON and AG-UI ESM runners', async () => {
   // Keep the smoke test offline even when the developer has AWS/OTEL settings.
   const env = Object.fromEntries(Object.entries(process.env)
     .filter(([key]) => !/^(AWS_|OTEL_|AGENT_|AGENTCORE_|KG_GATEWAY_URL)/.test(key)));
@@ -28,7 +28,8 @@ test('ADOT exports native Strands agent, model and tool spans from ESM', async (
   ], { cwd: new URL('..', import.meta.url), env, timeout: 20000 });
   assert.match(stdout, /TELEMETRY_SMOKE_OK/);
   for (const operation of ['invoke_agent', 'chat', 'execute_tool']) {
-    assert.match(stdout, new RegExp(`'gen_ai.operation.name': '${operation}'`));
+    assert.ok([...stdout.matchAll(new RegExp(`'gen_ai.operation.name': '${operation}'`, 'g'))].length >= 2,
+      `both runners must export ${operation} spans`);
   }
   assert.match(stdout, /'service.name': 'mmrf-telemetry-test'/);
   assert.doesNotMatch(stderr, /Error initializing|Attempted duplicate registration/);

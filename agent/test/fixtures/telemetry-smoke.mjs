@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { Model } from '@strands-agents/sdk';
 import { trace } from '@opentelemetry/api';
 import { createStrandsRunner } from '../../src/strands-runner.mjs';
+import { createAgUiRunner } from '../../src/agui.mjs';
 
 class ScriptedModel extends Model {
   calls = 0;
@@ -40,6 +41,26 @@ const run = createStrandsRunner({
 const result = await run({ prompt: 'Compare overall survival by CGS risk' });
 assert.equal(result.message, 'Smoke complete');
 assert.equal(result.toolCalls[0]?.status, 'success');
+// The deployed Chat page uses AG-UI, so exercise that runner as well as JSON.
+const runAgUi = createAgUiRunner({
+  loadBedrock: async () => ({ BedrockModel: ScriptedModel }),
+  tools: [{
+    spec: { name: 'correlation_plot', description: 'Offline telemetry smoke tool',
+      inputSchema: { type: 'object', properties: {
+        primaryVariable: { type: 'string' }, secondaryVariable: { type: 'string' },
+      } } },
+    wireName: 'virtual-lab___correlation_plot',
+    execute: async () => ({ status: 'ok', summary: 'Mock tool: observability smoke test' }),
+  }],
+});
+const events = [];
+for await (const event of runAgUi({
+  threadId: 'telemetry-smoke-thread', runId: 'telemetry-smoke-run', state: {},
+  messages: [{ id: 'message-1', role: 'user', content: 'Compare overall survival by CGS risk' }],
+})) events.push(event);
+assert.equal(events.at(-1).type, 'RUN_FINISHED');
+assert.ok(events.some(event => event.type === 'TOOL_CALL_RESULT'));
+assert.ok(events.some(event => event.type === 'TEXT_MESSAGE_CONTENT' && event.delta === 'Smoke complete'));
 // Flush the provider ADOT registered; never create a second tracer provider.
 await trace.getTracerProvider().getDelegate().forceFlush();
 console.log('TELEMETRY_SMOKE_OK');

@@ -71,5 +71,123 @@
         "gene"
       ]
     }
+  },
+  {
+    "name": "update_cohort",
+    "description": "Add, replace or remove filters on the researcher's selected cohort, such as \"only Black patients\" or \"drop the sex filter\". Give each field and value as the researcher said it; the tool matches them to the data and says if one is ambiguous or unknown. All changes in one call apply together or not at all.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "changes": {
+          "type": "array",
+          "description": "The changes to make, applied together.",
+          "items": {
+            "type": "object",
+            "properties": {
+              "field": {
+                "type": "string",
+                "description": "The field as the researcher said it, such as race, sex or ISS stage."
+              },
+              "op": {
+                "type": "string",
+                "enum": [
+                  "set",
+                  "remove"
+                ],
+                "description": "set replaces any value on the field; remove clears it."
+              },
+              "values": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "description": "The values as the researcher said them. Leave empty for remove."
+              }
+            },
+            "required": [
+              "field",
+              "op"
+            ]
+          }
+        },
+        "cohortFilterJson": {
+          "type": "string",
+          "description": "Selected website cohort, supplied by the agent"
+        }
+      },
+      "required": [
+        "changes"
+      ]
+    }
+  },
+  {
+    "name": "show_lollipop",
+    "description": "Show a Lollipop plot in ProteinPaint: where one gene's mutations fall along the protein and how often each occurs in the selected cohort. Use it for requests such as \"Show a lollipop plot for KRAS\" or \"Where do KRAS mutations fall on the protein?\". Give the gene as the researcher said it; aliases such as c-Myc resolve to MYC.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "gene": {
+          "type": "string",
+          "description": "The gene as the researcher said it, such as KRAS or c-Myc."
+        },
+        "cohortFilterJson": {
+          "type": "string",
+          "description": "Selected website cohort, supplied by the agent"
+        }
+      },
+      "required": [
+        "gene"
+      ]
+    }
+  },
+  {
+    "name": "show_survival",
+    "description": "Shows a Kaplan-Meier survival plot from the Correlation Plot tool for the researcher's selected cohort. Use it for survival analysis, Kaplan-Meier or overall survival, such as 'Using the Correlation Plot tool, perform Kaplan Meyer survival analysis to overlay CGS high-risk versus standard-risk' or 'Compare survival for high risk vs standard risk'. To compare groups, give compareBy. The result reports cases, deaths, censored cases, median survival and log-rank P-values, or says a comparison isn't available. It never takes a cohort, and only reports numbers; the plot is drawn for the researcher.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "compareBy": {
+          "type": "string",
+          "description": "What to split the curve by. One of: CGS risk, KRAS status, Sex, Race. Leave out for one curve."
+        },
+        "cohortFilterJson": {
+          "type": "string",
+          "description": "Selected website cohort, supplied by the agent"
+        }
+      },
+      "required": []
+    }
+  },
+  {
+    "name": "show_oncomatrix",
+    "description": "Shows which genes are most frequently mutated in the researcher's selected cohort, in OncoMatrix, with the number of cases and of samples with a mutation in the genes shown. Use it for questions such as 'which genes are most frequently mutated', 'top mutated genes' or 'show an OncoMatrix'. maxGenes is optional, for requests such as 'top 3'; it must be a whole number of 1 or more. It never takes a cohort, and only reports numbers; the chart is drawn for the researcher.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "maxGenes": {
+          "type": "integer",
+          "description": "How many top genes to show, a whole number of 1 or more. Leave out for the default."
+        },
+        "cohortFilterJson": {
+          "type": "string",
+          "description": "Selected website cohort, supplied by the agent"
+        }
+      },
+      "required": []
+    }
+  },
+  {
+    "name": "check_virtual_lab_health",
+    "description": "Check whether the Virtual Lab is healthy, and report how many synthetic cases it holds. Takes no input.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "cohortFilterJson": {
+          "type": "string",
+          "description": "Selected website cohort, supplied by the agent"
+        }
+      },
+      "required": []
+    }
   }
 ]

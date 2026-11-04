@@ -58,10 +58,11 @@ pieces are AWS resources whose code and setup live in the sandbox repo.
    exported from these specs.
 3. **Agent API**: `POST /v1/prompts` with `{prompt, history?, context?: {cohortFilter}}`
    returns `{message, toolCalls: [{name, input, status, result: {summary, plot}, error?}]}`.
-   Runtime's `/invocations` takes and returns the same JSON.
-4. **Chat UI**: one component per tool name in the fork's
-   `src/features/chat/tools/`, chosen by `toolName`; it reads `result.plot`
-   (`plot.type` says what to draw).
+   Runtime's `/invocations` takes and returns the same JSON. Chat speaks AG-UI instead:
+   `POST /v1/agui`, or `/invocations` with a `threadId`, streams AG-UI events (`agent/src/agui.mjs`).
+4. **Chat UI**: one component per tool in the fork's `src/features/chat/toolkit.tsx`, keyed
+   `virtual-lab___<tool>`. Tool results are `{status, summary, cohort, plot, ...}`, and only
+   status `error` is a failure. `update_cohort` changes the cohort through `state.cohort`.
 5. **Runtime ↔ Gateway**: infra-2's Terraform outputs `agentcore_gateway_url`;
    infra-1's Runtime reads it as the agent's `AGENTCORE_GATEWAY_URL`. With it
    unset, the agent runs tools in-process (local mode).

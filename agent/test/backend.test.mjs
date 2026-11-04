@@ -17,7 +17,7 @@ test('prompt endpoint validates input and passes it to the runner', async () => 
   const catalogResponse = await request(server, 'GET', '/v1/tools');
   assert.equal(catalogResponse.status, 200);
   assert.equal(catalogResponse.body.apps.length, 15);
-  assert.deepEqual(catalogResponse.body.apps.filter(app => app.registered).map(app => app.id), ['Correlation', 'OncoMatrix', 'DE']);
+  assert.deepEqual(catalogResponse.body.apps.filter(app => app.registered).map(app => app.id), ['Projects', 'CohortBuilder', 'Correlation', 'ProteinPaint', 'OncoMatrix', 'DE']);
   const response = await request(server, 'POST', '/v1/prompts', {
     prompt: '  Plot age against expression  ', context: { cohortFilter: { in: { gender: ['female'] } } },
   });
@@ -125,10 +125,10 @@ test('a new comparison keeps an earlier plot request in history only', async () 
   ]);
 });
 
-test('catalog lists all website areas and the three implemented tools', () => {
+test('catalog lists all website areas and the implemented tools', () => {
   const apps = toolCatalog.list();
   assert.equal(apps.length, 15);
-  assert.deepEqual(apps.filter(app => app.registered).map(app => app.id), ['Correlation', 'OncoMatrix', 'DE']);
+  assert.deepEqual(apps.filter(app => app.registered).map(app => app.id), ['Projects', 'CohortBuilder', 'Correlation', 'ProteinPaint', 'OncoMatrix', 'DE']);
   assert.deepEqual(toolCatalog.list({ query: 'correlation_plot' }).map(app => app.id), ['Correlation']);
   assert.deepEqual(toolCatalog.list({ query: 'UMAP' }).map(app => app.id), ['Umap']);
   const tools = toolCatalog.createTools({
@@ -136,7 +136,7 @@ test('catalog lists all website areas and the three implemented tools', () => {
     executors: { correlation_plot: mockCorrelationExecutor },
     context: { cohortFilter: null }, calls: [],
   });
-  assert.deepEqual(tools.map(tool => tool.name), ['correlation_plot', 'top_mutated_genes', 'differential_expression']);
+  assert.deepEqual(tools.map(tool => tool.name), ['correlation_plot', 'top_mutated_genes', 'differential_expression', 'update_cohort', 'show_lollipop', 'show_survival', 'show_oncomatrix', 'check_virtual_lab_health']);
 });
 
 test('catalog supports additional tools and rejects bad registrations', () => {

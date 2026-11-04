@@ -67,23 +67,28 @@ export function createRuntimeClient({ arn, endpoint, credentials = createCredent
   const base = new URL(endpoint || `https://${SERVICE}.${region}.amazonaws.com`);
   const path = `/runtimes/${id}/invocations`;
   const query = `accountId=${account}`;
-  return async function invoke(body) {
+
+  async function send(body, accept, session) {
+    const signing = await credentials();
+    const headers = {
+      accept,
+      'content-type': 'application/json',
+      host: base.host,
+      'x-amz-date': now().toISOString().replace(/[-:]|\.\d{3}/g, ''),
+      'x-amzn-bedrock-agentcore-runtime-session-id': session,
+    };
+    if (signing.sessionToken) headers['x-amz-security-token'] = signing.sessionToken;
+    const signature = authorization({ method: 'POST', path, query, headers, body, region, service: SERVICE,
+      credentials: signing });
+    return fetchImpl(`${base.origin}${path}?${query}`, { method: 'POST', body,
+      headers: { ...headers, authorization: signature }, signal: AbortSignal.timeout(TIMEOUT_MS) });
+  }
+
+  async function invoke(body) {
     try {
-      const signing = await credentials();
-      const headers = {
-        accept: 'application/json',
-        'content-type': 'application/json',
-        host: base.host,
-        'x-amz-date': now().toISOString().replace(/[-:]|\.\d{3}/g, ''),
-        // A new session per request: the agent is stateless, and a new session
-        // always runs the latest deployed version.
-        'x-amzn-bedrock-agentcore-runtime-session-id': sessionId(),
-      };
-      if (signing.sessionToken) headers['x-amz-security-token'] = signing.sessionToken;
-      const signature = authorization({ method: 'POST', path, query, headers, body, region, service: SERVICE,
-        credentials: signing });
-      const response = await fetchImpl(`${base.origin}${path}?${query}`, { method: 'POST', body,
-        headers: { ...headers, authorization: signature }, signal: AbortSignal.timeout(TIMEOUT_MS) });
+      // A new session per request: the agent is stateless, and a new session
+      // always runs the latest deployed version.
+      const response = await send(body, 'application/json', sessionId());
       const text = await response.text();
       if (response.ok) return { status: 200, body: text };
       console.error(`Agent runtime returned HTTP ${response.status}: ${text.slice(0, 500)}`);
@@ -92,5 +97,21 @@ export function createRuntimeClient({ arn, endpoint, credentials = createCredent
       console.error(`Agent runtime call failed: ${error.message}`);
       return failure(502, '');
     }
+  }
+
+  /** One chat thread stays on one Runtime session. Returns { stream } or a failure. */
+  invoke.stream = async function stream(body, threadId) {
+    try {
+      const session = createHash('sha256').update(threadId).digest('hex');
+      const response = await send(body, 'text/event-stream', session);
+      if (response.ok && response.body) return { stream: response.body };
+      const text = await response.text();
+      console.error(`Agent runtime returned HTTP ${response.status}: ${text.slice(0, 500)}`);
+      return failure(response.status, text);
+    } catch (error) {
+      console.error(`Agent runtime call failed: ${error.message}`);
+      return failure(502, '');
+    }
   };
+  return invoke;
 }

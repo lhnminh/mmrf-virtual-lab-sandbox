@@ -8,6 +8,7 @@ const SERVICE = 'bedrock-agentcore';
 const TARGET = 'kg-graph';
 const TIMEOUT_MS = 60000;
 const MAX_MODEL_CHARS = 20000;
+const MCP_PROTOCOL_VERSION = '2025-06-18'; // The only version the gateway accepts.
 
 export const KNOWLEDGE_GRAPH_APP = Object.freeze({ id: 'KnowledgeGraph', title: 'Knowledge Graph', section: 'Knowledge' });
 
@@ -45,7 +46,8 @@ export function createKnowledgeGraphClient({ url = process.env.KG_GATEWAY_URL, c
       params: { name: `${TARGET}___${name}`, arguments: input } });
     const signed = await signer.sign({
       method: 'POST', protocol: endpoint.protocol, hostname: endpoint.hostname, path: endpoint.pathname, body,
-      headers: { accept: 'application/json', 'content-type': 'application/json', host: endpoint.host },
+      headers: { accept: 'application/json', 'content-type': 'application/json', host: endpoint.host,
+        'mcp-protocol-version': MCP_PROTOCOL_VERSION },
     });
     const response = await fetchImpl(endpoint, { method: 'POST', headers: signed.headers, body,
       signal: AbortSignal.timeout(TIMEOUT_MS), redirect: 'error' });
