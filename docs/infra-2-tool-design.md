@@ -21,9 +21,14 @@ NRAS 113, DIS3 100; the KRAS DE groups contain 520 tested negatives and
 comparison live test also passed. The actual AWS Gateway and Chat flow remain
 deployment checks.
 
-The frontend fork's `infra-2-chat-tools` branch contains the Chat result
-renderer and Save Cohort actions. `sources.json` pins its pushed commit so the
-sandbox build can fetch those changes.
+The frontend fork contains the Chat result renderer and Save Cohort actions.
+The `journey-oncomatrix-chat` branch adds the interactive matrix result.
+`sources.json` pins its pushed commit so the sandbox build can fetch it.
+
+For journey 2, the `top_mutated_genes` result also offers the existing
+interactive OncoMatrix in Chat. It receives the same `filter0` used to rank
+the genes, so clicking the KRAS gene label can open its cohort-scoped Lollipop
+plot. The matrix loads when the researcher opens it.
 
 ## Next tools, in order
 
