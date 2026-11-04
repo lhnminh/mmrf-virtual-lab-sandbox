@@ -110,6 +110,11 @@ def _clean_result(result, revision):
         if body is not None:
             block = {**block, "text": json.dumps(_clean_body(body, revision))}
         content.append(block)
+    if result.get("status") == "error" and _first_body(result) is None:
+        # A transport failure (Gateway or Lambda unreachable) has plain text, not the JSON contract.
+        # Without a body the UI would show Done. The text can't hold a filter: it isn't JSON.
+        text = " ".join(str(b.get("text", "")) for b in content if isinstance(b, dict) and b.get("text")).strip()
+        content = [{"text": json.dumps({"status": "error", "summary": text or "The tool call failed."})}]
     clean = {**result, "content": content}
     if "structuredContent" in clean:
         clean["structuredContent"] = _clean_body(clean["structuredContent"], revision)
@@ -182,6 +187,6 @@ def prompt_context(run_input, message):
     if type(count) is int:
         facts.append(f"Cases: {count}.")
     if cohort.get("changedOutsideChat") is True:
-        facts.append('The researcher changed the cohort outside chat, so start your answer with "Now using: ", '
+        facts.append('The researcher changed the cohort outside chat, so start your answer to this message with "Now using: ", '
                      "then this cohort's name and case count.")
     return f"{message}\n\n[{' '.join(facts)}]"

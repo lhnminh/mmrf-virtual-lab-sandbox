@@ -465,6 +465,27 @@ class Revisions(unittest.TestCase):
                 self.assertEqual(tool_results(events)[1]["cohort"]["revision"], 6)
 
 
+class TransportFailure(unittest.TestCase):
+    def test_plain_text_error_becomes_the_json_contract(self):
+        result = {"toolUseId": "t", "status": "error", "content": [{"text": "Error: Gateway returned 502"}]}
+        clean = cohort_module._clean_result(result, 3)
+        self.assertEqual(json.loads(clean["content"][0]["text"]),
+                         {"status": "error", "summary": "Error: Gateway returned 502"})
+        self.assertEqual(clean["status"], "error")
+
+    def test_json_error_body_is_left_alone(self):
+        body = {"status": "error", "summary": "Lookup failed.", "step": "lookup_gene"}
+        result = {"toolUseId": "t", "status": "error", "content": [{"text": json.dumps(body)}]}
+        self.assertEqual(json.loads(cohort_module._clean_result(result, 3)["content"][0]["text"]), body)
+
+    def test_error_text_holding_a_filter_is_still_stripped(self):
+        text = json.dumps([{"filter": NEW_FILTER, "note": "x"}])
+        result = {"toolUseId": "t", "status": "error", "content": [{"text": text}]}
+        clean = cohort_module._clean_result(result, 3)
+        self.assertNotIn(NEW_MARKER, json.dumps(clean))
+        self.assertNotIn("filter", json.dumps(clean))
+
+
 class PendingMap(unittest.TestCase):
     def test_run_leaves_nothing_behind(self):
         Harness({"go": [UPDATE_STEP, UPDATE_STEP]}).run("go")
@@ -509,6 +530,7 @@ class Prompt(unittest.TestCase):
         text = self.build(label="Race: white", caseCount=334, changedOutsideChat=True)
         self.assertIn("Now using", text)
         self.assertIn("outside chat", text)
+        self.assertIn("start your answer to this message with", text)
 
     def test_label_holding_case_ids_is_dropped(self):
         for label in (f"Cases {CASE_MARKER}", "cases synth-case-1", "x" * 300 + "SYNTH-CASE-1"):
