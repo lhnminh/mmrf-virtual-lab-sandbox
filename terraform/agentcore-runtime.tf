@@ -44,7 +44,12 @@ resource "aws_iam_role_policy" "agent_runtime" {
   role  = aws_iam_role.agent_runtime[0].id
   policy = jsonencode({
     Version = "2012-10-17"
-    Statement = [
+    Statement = concat(var.kg_gateway_arn == "" ? [] : [{
+      Sid      = "KnowledgeGraphGateway"
+      Effect   = "Allow"
+      Action   = "bedrock-agentcore:InvokeGateway"
+      Resource = var.kg_gateway_arn
+      }], [
       {
         Sid      = "ImagePull"
         Effect   = "Allow"
@@ -123,7 +128,7 @@ resource "aws_iam_role_policy" "agent_runtime" {
         Action   = ["aws-marketplace:ViewSubscriptions", "aws-marketplace:Subscribe"]
         Resource = "*"
       },
-    ]
+    ])
   })
 }
 

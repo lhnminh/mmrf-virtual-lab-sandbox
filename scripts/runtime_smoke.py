@@ -8,10 +8,11 @@ the real resources. Uses the default AWS credentials.
 
     python3 scripts/runtime_smoke.py up       # create everything and invoke
     python3 scripts/runtime_smoke.py invoke "A question"
-    python3 scripts/runtime_smoke.py down     # delete everything
+    python3 scripts/runtime_smoke.py down     # delete the Runtime and repository
 
-Without VIRTUAL_LAB_ORIGIN the agent is chat-only. To use the tools, also set
-SANDBOX_ACCESS_USERNAME and SANDBOX_ACCESS_PASSWORD.
+Without VIRTUAL_LAB_ORIGIN or KG_GATEWAY_URL the agent is chat-only. With
+VIRTUAL_LAB_ORIGIN, also set SANDBOX_ACCESS_USERNAME and SANDBOX_ACCESS_PASSWORD.
+KG_GATEWAY_URL adds the knowledge graph tools.
 """
 import argparse
 from dataclasses import dataclass, field
@@ -30,7 +31,9 @@ import deploy_runtime  # noqa: E402
 ROOT = Path(__file__).resolve().parents[1]
 NAME = "mmrf-smoke"
 REPOSITORY = NAME + "/agent-runtime"
-ROLE = NAME + "-agent-runtime"
+# Shared: the knowledge graph team's Terraform grants this role gateway access,
+# so this script reuses it and never deletes it.
+ROLE = "mmrf-orchestrator-agent-runtime"
 RUNTIME = NAME.replace("-", "_") + "_agent"
 TAGS = [{"Key": "Project", "Value": "mmrf-virtual-lab-sandbox"},
         {"Key": "Purpose", "Value": "agentcore-runtime-smoke"}]
@@ -127,7 +130,7 @@ def configure(ctx):
     if origin:
         ctx.access = {"origin": origin, "username": os.environ["SANDBOX_ACCESS_USERNAME"],
                       "password": os.environ["SANDBOX_ACCESS_PASSWORD"]}
-    else:
+    elif not os.environ.get("KG_GATEWAY_URL"):
         ctx.extra_env = {"AGENT_CHAT_ONLY": "1"}
 
 
@@ -162,9 +165,6 @@ def down(ctx):
     deploy_runtime.destroy(ctx)
     if exists(ctx, "ecr", "describe-repositories", "--repository-names", REPOSITORY):
         deploy_runtime.aws(ctx, "ecr", "delete-repository", "--repository-name", REPOSITORY, "--force")
-    if exists(ctx, "iam", "get-role", "--role-name", ROLE):
-        deploy_runtime.aws(ctx, "iam", "delete-role-policy", "--role-name", ROLE, "--policy-name", "agent-runtime")
-        deploy_runtime.aws(ctx, "iam", "delete-role", "--role-name", ROLE)
     record = ctx.directory / "agent-runtime.json"
     record.unlink(missing_ok=True)
 

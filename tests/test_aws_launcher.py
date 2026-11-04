@@ -132,6 +132,13 @@ class LauncherTests(unittest.TestCase):
     def test_named_role_is_required(self):
         operator = launcher.Operator(CONFIG)
         operator.aws = Mock(return_value={"Account": CONFIG["account_id"], "Arn": "arn:aws:sts::123456789012:assumed-role/OtherRole/session"})
+        # Added cases: an IAM user operator must match exactly.
+        user = launcher.Operator({**CONFIG, "role_arn": "arn:aws:iam::123456789012:user/operator"})
+        user.aws = Mock(return_value={"Account": CONFIG["account_id"], "Arn": "arn:aws:iam::123456789012:user/operator"})
+        self.assertEqual(user.identity()["Account"], CONFIG["account_id"])
+        user.aws = Mock(return_value={"Account": CONFIG["account_id"], "Arn": "arn:aws:iam::123456789012:user/someone-else"})
+        with self.assertRaises(ValueError):
+            user.identity()
         with self.assertRaisesRegex(ValueError, "configured operator IAM role"):
             operator.identity()
 

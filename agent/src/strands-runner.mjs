@@ -2,6 +2,7 @@ import { createHttpCorrelationExecutor } from './correlation-tool.mjs';
 import { parsePromptRequest } from './contract.mjs';
 import { toolCatalog } from './tool-catalog.mjs';
 import { createRoutingExecutor } from './executors/index.mjs';
+import { KNOWLEDGE_GRAPH_PROMPT } from './knowledge-graph.mjs';
 import { createSurvivalHandler } from './executors/survival.mjs';
 import { createExecutors, registeredTools } from './tools/index.mjs';
 import { createVirtualLabFetch } from './virtual-lab-fetch.mjs';
@@ -50,7 +51,8 @@ export function createStrandsRunner({ execute,
   loadSdk = () => import('@strands-agents/sdk'),
   loadBedrock = () => import('@strands-agents/sdk/models/bedrock'),
   modelId = process.env.BEDROCK_MODEL_ID || 'global.anthropic.claude-sonnet-4-6',
-  chatOnly = process.env.AGENT_CHAT_ONLY === '1' } = {}) {
+  chatOnly = process.env.AGENT_CHAT_ONLY === '1',
+  knowledgeGraph = Boolean(process.env.KG_GATEWAY_URL) } = {}) {
   const origin = process.env.VIRTUAL_LAB_ORIGIN || 'http://127.0.0.1:3080';
   const localExecutors = executors || createExecutors({
     origin, fetchImpl: createVirtualLabFetch({ origin }),
@@ -67,9 +69,11 @@ export function createStrandsRunner({ execute,
     const toolCalls = [];
     // A fresh agent per request prevents one user's prompt history reaching another.
     const agent = new Agent({
-      model: new BedrockModel({ modelId, maxTokens: 1024 }),
-      systemPrompt: chatOnly ? CHAT_SYSTEM_PROMPT : SYSTEM_PROMPT + '\n' +
-        registeredTools.map(item => item.promptGuidance).join('\n'),
+      // Knowledge graph answers cite evidence and run to several tool calls.
+      model: new BedrockModel({ modelId, maxTokens: knowledgeGraph && !chatOnly ? 4096 : 1024 }),
+      systemPrompt: chatOnly ? CHAT_SYSTEM_PROMPT : [SYSTEM_PROMPT,
+        ...registeredTools.map(item => item.promptGuidance),
+        ...(knowledgeGraph ? [KNOWLEDGE_GRAPH_PROMPT] : [])].join('\n'),
       messages: history.map(turn => ({ role: turn.role, content: [{ text: turn.content }] })),
       tools: chatOnly ? [] : catalog.createTools({
         toolFactory: tool,

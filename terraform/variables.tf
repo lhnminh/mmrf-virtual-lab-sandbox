@@ -19,11 +19,11 @@ variable "name" {
   }
 }
 variable "operator_role_arn" {
-  description = "Existing IAM role the operator uses for Kubernetes administration; no credentials are created."
+  description = "Existing IAM role or user the operator uses for Kubernetes administration; no credentials are created."
   type        = string
   validation {
-    condition     = can(regex("^arn:aws:iam::[0-9]{12}:role/.+", var.operator_role_arn))
-    error_message = "Supply an existing IAM role ARN in the sandbox account."
+    condition     = can(regex("^arn:aws:iam::[0-9]{12}:(role|user)/.+", var.operator_role_arn))
+    error_message = "Supply an existing IAM role or user ARN in the sandbox account."
   }
 }
 variable "operator_cidrs" {
@@ -46,6 +46,11 @@ variable "vpc_cidr" {
     condition     = can(cidrnetmask(var.vpc_cidr)) && try(tonumber(split("/", var.vpc_cidr)[1]) == 16, false)
     error_message = "Use an IPv4 /16 for the new isolated VPC."
   }
+}
+variable "kg_gateway_arn" {
+  description = "Knowledge graph AgentCore Gateway the agent may call; empty for none."
+  type        = string
+  default     = ""
 }
 variable "enable_https" {
   description = "Add a private ALB and CloudFront HTTPS entry point; Helm must enable the password-protected access service."

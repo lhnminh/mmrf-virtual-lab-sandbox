@@ -78,7 +78,12 @@ class Operator:
         caller = self.aws("sts", "get-caller-identity")
         if caller["Account"] != self.config["account_id"]:
             raise ValueError("STOP: selected profile is not in the configured sandbox account")
-        role_name = self.config["role_arn"].split("/")[-1]
+        operator_arn = self.config["role_arn"]
+        if ":user/" in operator_arn:
+            if caller["Arn"] != operator_arn:
+                raise ValueError("STOP: selected profile is not the configured operator IAM user")
+            return caller
+        role_name = operator_arn.split("/")[-1]
         if f":assumed-role/{role_name}/" not in caller["Arn"]:
             raise ValueError("STOP: selected profile is not assuming the configured operator IAM role")
         return caller
@@ -398,13 +403,15 @@ def initialize(args):
         raise ValueError("STOP: selected profile is not in the expected sandbox account")
     if args.role_arn:
         config["role_arn"] = args.role_arn
+    elif ":user/" in caller["Arn"]:
+        config["role_arn"] = caller["Arn"]
     else:
         if ":assumed-role/" not in caller["Arn"]:
-            raise ValueError("Use a profile assuming an IAM role, not an IAM user")
+            raise ValueError("Use a profile for an IAM user or one assuming an IAM role")
         role_name = caller["Arn"].split(":assumed-role/", 1)[1].split("/")[0]
         config["role_arn"] = operator.aws("iam", "get-role", "--role-name", role_name)["Role"]["Arn"]
-    if not re.fullmatch(r"arn:aws:iam::" + args.account_id + r":role/.+", config["role_arn"]):
-        raise ValueError("Operator role must be a full IAM role ARN in the expected account")
+    if not re.fullmatch(r"arn:aws:iam::" + args.account_id + r":(role|user)/.+", config["role_arn"]):
+        raise ValueError("Operator must be a full IAM role or user ARN in the expected account")
     cidr = args.operator_cidr
     if not cidr:
         with urllib.request.urlopen("https://checkip.amazonaws.com", timeout=15) as response:
