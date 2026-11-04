@@ -192,5 +192,13 @@ class Resolvers(unittest.TestCase):
         self.assertEqual(resolve_field("ISS stage").name, "diagnoses.iss_stage")
 
 
+class CgsRiskNames(unittest.TestCase):
+    def test_the_survival_tool_names_for_cgs_risk_resolve(self):
+        for name in ("CGS risk", "cgs", "risk", "risk category", "CGS risk category"):
+            with self.subTest(name=name):
+                self.assertEqual(getattr(resolve_field(name), "name", None),
+                                 "cgs_risk_key_criteria.cgs_risk_category")
+
+
 if __name__ == "__main__":
     unittest.main()

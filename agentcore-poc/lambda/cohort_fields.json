@@ -183,7 +183,11 @@
   },
   "synonyms": {
     "gender": "demographic.gender",
-    "sex": "demographic.gender"
+    "sex": "demographic.gender",
+    "cgs risk": "cgs_risk_key_criteria.cgs_risk_category",
+    "cgs": "cgs_risk_key_criteria.cgs_risk_category",
+    "risk": "cgs_risk_key_criteria.cgs_risk_category",
+    "risk category": "cgs_risk_key_criteria.cgs_risk_category"
   },
   "valueSynonyms": {
     "man": "male",
