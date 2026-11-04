@@ -1,88 +1,114 @@
-data: {"type": "RUN_STARTED", "threadId": "hand-edited-none-in-cohort", "runId": "3d8a673a-1cbd-4b89-b3f1-d52bede247d2", "protocolVersion": "1.0"}
+data: {"type": "RUN_STARTED", "threadId": "23288525-ce0c-4787-a43c-d000ca6c450c", "runId": "f687c673-aa42-42d0-8434-abd65e27d9c6", "protocolVersion": "1.0"}
 
 data: {"type": "STATE_SNAPSHOT", "snapshot": {"cohort": {"filter": {"and": [{"in": {"demographic.race": ["white"]}}, {"in": {"demographic.gender": ["male"]}}, {"in": {"demographic.vital_status": ["Alive"]}}, {"in": {"cgs_risk_key_criteria.cgs_risk_category": ["High risk"]}}]}, "label": "Race: white; Sex: male; Vital Status: Alive; CGS Risk Category: High risk", "caseCount": 6, "revision": 1, "changedOutsideChat": false}}}
 
-data: {"type": "MESSAGES_SNAPSHOT", "messages": [{"id": "ac2b6488-b03a-49a1-af0f-5d03d583dbaf", "role": "user", "content": "Show a lollipop plot for DIS3."}]}
+data: {"type": "MESSAGES_SNAPSHOT", "messages": [{"id": "37429c70-7fcb-4a96-8193-657299acb8d1", "role": "user", "content": "Show a lollipop plot for DIS3."}]}
 
-data: {"type": "REASONING_START", "messageId": "67f90520-b4de-45ee-866a-b9606f8584fc"}
+data: {"type": "REASONING_START", "messageId": "4d359367-2c08-4908-9ddf-683df5c1bef9"}
 
-data: {"type": "REASONING_MESSAGE_START", "messageId": "67f90520-b4de-45ee-866a-b9606f8584fc", "role": "reasoning"}
+data: {"type": "REASONING_MESSAGE_START", "messageId": "4d359367-2c08-4908-9ddf-683df5c1bef9", "role": "reasoning"}
 
-data: {"type": "REASONING_MESSAGE_END", "messageId": "67f90520-b4de-45ee-866a-b9606f8584fc"}
+data: {"type": "REASONING_MESSAGE_END", "messageId": "4d359367-2c08-4908-9ddf-683df5c1bef9"}
 
-data: {"type": "REASONING_END", "messageId": "67f90520-b4de-45ee-866a-b9606f8584fc"}
+data: {"type": "REASONING_END", "messageId": "4d359367-2c08-4908-9ddf-683df5c1bef9"}
 
-data: {"type": "TEXT_MESSAGE_START", "messageId": "8342a20a-fc74-40c4-8b5c-a5580f49afaf", "role": "assistant"}
+data: {"type": "TEXT_MESSAGE_START", "messageId": "bef8ca87-7dc0-4874-932d-d5e5d68bf1f2", "role": "assistant"}
 
-data: {"type": "TEXT_MESSAGE_CONTENT", "messageId": "8342a20a-fc74-40c4-8b5c-a5580f49afaf", "delta": "Plan:"}
+data: {"type": "TEXT_MESSAGE_CONTENT", "messageId": "bef8ca87-7dc0-4874-932d-d5e5d68bf1f2", "delta": "Plan: call"}
 
-data: {"type": "TEXT_MESSAGE_CONTENT", "messageId": "8342a20a-fc74-40c4-8b5c-a5580f49afaf", "delta": " call the lollipop tool"}
+data: {"type": "TEXT_MESSAGE_CONTENT", "messageId": "bef8ca87-7dc0-4874-932d-d5e5d68bf1f2", "delta": " the lollipop tool for"}
 
-data: {"type": "TEXT_MESSAGE_CONTENT", "messageId": "8342a20a-fc74-40c4-8b5c-a5580f49afaf", "delta": " for DIS3 on"}
+data: {"type": "TEXT_MESSAGE_CONTENT", "messageId": "bef8ca87-7dc0-4874-932d-d5e5d68bf1f2", "delta": " DIS3 with the current"}
 
-data: {"type": "TEXT_MESSAGE_CONTENT", "messageId": "8342a20a-fc74-40c4-8b5c-a5580f49afaf", "delta": " the current cohort,"}
+data: {"type": "TEXT_MESSAGE_CONTENT", "messageId": "bef8ca87-7dc0-4874-932d-d5e5d68bf1f2", "delta": " cohort,"}
 
-data: {"type": "TEXT_MESSAGE_CONTENT", "messageId": "8342a20a-fc74-40c4-8b5c-a5580f49afaf", "delta": " then"}
+data: {"type": "TEXT_MESSAGE_CONTENT", "messageId": "bef8ca87-7dc0-4874-932d-d5e5d68bf1f2", "delta": " then"}
 
-data: {"type": "TEXT_MESSAGE_CONTENT", "messageId": "8342a20a-fc74-40c4-8b5c-a5580f49afaf", "delta": " report its"}
+data: {"type": "TEXT_MESSAGE_CONTENT", "messageId": "bef8ca87-7dc0-4874-932d-d5e5d68bf1f2", "delta": " report the result"}
 
-data: {"type": "TEXT_MESSAGE_CONTENT", "messageId": "8342a20a-fc74-40c4-8b5c-a5580f49afaf", "delta": " results."}
+data: {"type": "TEXT_MESSAGE_CONTENT", "messageId": "bef8ca87-7dc0-4874-932d-d5e5d68bf1f2", "delta": "."}
 
-data: {"type": "TEXT_MESSAGE_END", "messageId": "8342a20a-fc74-40c4-8b5c-a5580f49afaf"}
+data: {"type": "TEXT_MESSAGE_END", "messageId": "bef8ca87-7dc0-4874-932d-d5e5d68bf1f2"}
 
-data: {"type": "MESSAGES_SNAPSHOT", "messages": [{"id": "ac2b6488-b03a-49a1-af0f-5d03d583dbaf", "role": "user", "content": "Show a lollipop plot for DIS3."}, {"id": "8342a20a-fc74-40c4-8b5c-a5580f49afaf", "role": "assistant", "content": "Plan: call the lollipop tool for DIS3 on the current cohort, then report its results."}]}
+data: {"type": "MESSAGES_SNAPSHOT", "messages": [{"id": "37429c70-7fcb-4a96-8193-657299acb8d1", "role": "user", "content": "Show a lollipop plot for DIS3."}, {"id": "bef8ca87-7dc0-4874-932d-d5e5d68bf1f2", "role": "assistant", "content": "Plan: call the lollipop tool for DIS3 with the current cohort, then report the result."}]}
 
-data: {"type": "TOOL_CALL_START", "toolCallId": "tooluse_7yQvdo1E5pjnmhgqTTR1LP", "toolCallName": "virtual-lab___show_lollipop", "parentMessageId": "8fb92903-fa3a-4301-977f-fa129eef1f23"}
+data: {"type": "TOOL_CALL_START", "toolCallId": "tooluse_RK3npUq11KwtCYVdPShsDf", "toolCallName": "virtual-lab___show_lollipop", "parentMessageId": "1b70a1fe-9da9-4467-9790-938aad75c5ee"}
 
-data: {"type": "TOOL_CALL_ARGS", "toolCallId": "tooluse_7yQvdo1E5pjnmhgqTTR1LP", "delta": "{\"gene\": \"DI"}
+data: {"type": "TOOL_CALL_ARGS", "toolCallId": "tooluse_RK3npUq11KwtCYVdPShsDf", "delta": "{\"gene\": \""}
 
-data: {"type": "TOOL_CALL_ARGS", "toolCallId": "tooluse_7yQvdo1E5pjnmhgqTTR1LP", "delta": "S3\"}"}
+data: {"type": "TOOL_CALL_ARGS", "toolCallId": "tooluse_RK3npUq11KwtCYVdPShsDf", "delta": "DIS3\"}"}
 
-data: {"type": "TOOL_CALL_END", "toolCallId": "tooluse_7yQvdo1E5pjnmhgqTTR1LP"}
+data: {"type": "TOOL_CALL_END", "toolCallId": "tooluse_RK3npUq11KwtCYVdPShsDf"}
 
-data: {"type": "MESSAGES_SNAPSHOT", "messages": [{"id": "ac2b6488-b03a-49a1-af0f-5d03d583dbaf", "role": "user", "content": "Show a lollipop plot for DIS3."}, {"id": "8342a20a-fc74-40c4-8b5c-a5580f49afaf", "role": "assistant", "content": "Plan: call the lollipop tool for DIS3 on the current cohort, then report its results."}, {"id": "8fb92903-fa3a-4301-977f-fa129eef1f23", "role": "assistant", "content": "", "toolCalls": [{"id": "tooluse_7yQvdo1E5pjnmhgqTTR1LP", "type": "function", "function": {"name": "virtual-lab___show_lollipop", "arguments": "{\"gene\":\"DIS3\"}"}}]}]}
+data: {"type": "MESSAGES_SNAPSHOT", "messages": [{"id": "37429c70-7fcb-4a96-8193-657299acb8d1", "role": "user", "content": "Show a lollipop plot for DIS3."}, {"id": "bef8ca87-7dc0-4874-932d-d5e5d68bf1f2", "role": "assistant", "content": "Plan: call the lollipop tool for DIS3 with the current cohort, then report the result."}, {"id": "1b70a1fe-9da9-4467-9790-938aad75c5ee", "role": "assistant", "content": "", "toolCalls": [{"id": "tooluse_RK3npUq11KwtCYVdPShsDf", "type": "function", "function": {"name": "virtual-lab___show_lollipop", "arguments": "{\"gene\":\"DIS3\"}"}}]}]}
 
-data: {"type": "RAW", "event": {"event": {"metadata": {"usage": {"inputTokens": 1986, "outputTokens": 133, "totalTokens": 2119}, "metrics": {"latencyMs": 1187}}}}, "source": "strands"}
+data: {"type": "RAW", "event": {"event": {"metadata": {"usage": {"inputTokens": 2009, "outputTokens": 139, "totalTokens": 2148}, "metrics": {"latencyMs": 1587}}}}, "source": "strands"}
 
-data: {"type": "TOOL_CALL_RESULT", "messageId": "d3adddfa-b47d-4eec-9727-94b04919a93e", "toolCallId": "tooluse_7yQvdo1E5pjnmhgqTTR1LP", "content": "{\"status\":\"none_in_cohort\",\"summary\":\"0 of 6 cases in this cohort have a DIS3 mutation.\",\"gene\":\"DIS3\",\"cohort\":{\"label\":\"Race: white; Sex: male; Vital Status: Alive; CGS Risk Category: High risk\",\"caseCount\":6,\"revision\":1}}"}
+data: {"type": "TOOL_CALL_RESULT", "messageId": "8509362a-19a7-4c3f-b99a-8a0a27ac776e", "toolCallId": "tooluse_RK3npUq11KwtCYVdPShsDf", "content": "{\"status\":\"none_in_cohort\",\"summary\":\"0 of 6 cases in this cohort have a DIS3 mutation.\",\"gene\":\"DIS3\",\"cohort\":{\"label\":\"Race: white; Sex: male; Vital Status: Alive; CGS Risk Category: High risk\",\"caseCount\":6,\"revision\":1}}"}
 
-data: {"type": "MESSAGES_SNAPSHOT", "messages": [{"id": "ac2b6488-b03a-49a1-af0f-5d03d583dbaf", "role": "user", "content": "Show a lollipop plot for DIS3."}, {"id": "8342a20a-fc74-40c4-8b5c-a5580f49afaf", "role": "assistant", "content": "Plan: call the lollipop tool for DIS3 on the current cohort, then report its results."}, {"id": "8fb92903-fa3a-4301-977f-fa129eef1f23", "role": "assistant", "content": "", "toolCalls": [{"id": "tooluse_7yQvdo1E5pjnmhgqTTR1LP", "type": "function", "function": {"name": "virtual-lab___show_lollipop", "arguments": "{\"gene\":\"DIS3\"}"}}]}, {"id": "d3adddfa-b47d-4eec-9727-94b04919a93e", "role": "tool", "content": "{\"status\":\"none_in_cohort\",\"summary\":\"0 of 6 cases in this cohort have a DIS3 mutation.\",\"gene\":\"DIS3\",\"cohort\":{\"label\":\"Race: white; Sex: male; Vital Status: Alive; CGS Risk Category: High risk\",\"caseCount\":6,\"revision\":1}}", "toolCallId": "tooluse_7yQvdo1E5pjnmhgqTTR1LP"}]}
+data: {"type": "MESSAGES_SNAPSHOT", "messages": [{"id": "37429c70-7fcb-4a96-8193-657299acb8d1", "role": "user", "content": "Show a lollipop plot for DIS3."}, {"id": "bef8ca87-7dc0-4874-932d-d5e5d68bf1f2", "role": "assistant", "content": "Plan: call the lollipop tool for DIS3 with the current cohort, then report the result."}, {"id": "1b70a1fe-9da9-4467-9790-938aad75c5ee", "role": "assistant", "content": "", "toolCalls": [{"id": "tooluse_RK3npUq11KwtCYVdPShsDf", "type": "function", "function": {"name": "virtual-lab___show_lollipop", "arguments": "{\"gene\":\"DIS3\"}"}}]}, {"id": "8509362a-19a7-4c3f-b99a-8a0a27ac776e", "role": "tool", "content": "{\"status\":\"none_in_cohort\",\"summary\":\"0 of 6 cases in this cohort have a DIS3 mutation.\",\"gene\":\"DIS3\",\"cohort\":{\"label\":\"Race: white; Sex: male; Vital Status: Alive; CGS Risk Category: High risk\",\"caseCount\":6,\"revision\":1}}", "toolCallId": "tooluse_RK3npUq11KwtCYVdPShsDf"}]}
 
-data: {"type": "REASONING_START", "messageId": "eb9833c0-e7b3-4ab9-b788-8cc01f9e438d"}
+data: {"type": "TEXT_MESSAGE_START", "messageId": "dd490da6-2e7a-4a3c-b664-81ac43436dfa", "role": "assistant"}
 
-data: {"type": "REASONING_MESSAGE_START", "messageId": "eb9833c0-e7b3-4ab9-b788-8cc01f9e438d", "role": "reasoning"}
+data: {"type": "TEXT_MESSAGE_CONTENT", "messageId": "dd490da6-2e7a-4a3c-b664-81ac43436dfa", "delta": "Observed:"}
 
-data: {"type": "REASONING_MESSAGE_END", "messageId": "eb9833c0-e7b3-4ab9-b788-8cc01f9e438d"}
+data: {"type": "TEXT_MESSAGE_CONTENT", "messageId": "dd490da6-2e7a-4a3c-b664-81ac43436dfa", "delta": "\n- "}
 
-data: {"type": "REASONING_END", "messageId": "eb9833c0-e7b3-4ab9-b788-8cc01f9e438d"}
+data: {"type": "TEXT_MESSAGE_CONTENT", "messageId": "dd490da6-2e7a-4a3c-b664-81ac43436dfa", "delta": "0 of 6 cases"}
 
-data: {"type": "TEXT_MESSAGE_START", "messageId": "159bc119-05df-48e3-afc5-0f55ec04aa7b", "role": "assistant"}
+data: {"type": "TEXT_MESSAGE_CONTENT", "messageId": "dd490da6-2e7a-4a3c-b664-81ac43436dfa", "delta": " in this cohort have a D"}
 
-data: {"type": "TEXT_MESSAGE_CONTENT", "messageId": "159bc119-05df-48e3-afc5-0f55ec04aa7b", "delta": "**Observed:** 0 of 6 "}
+data: {"type": "TEXT_MESSAGE_CONTENT", "messageId": "dd490da6-2e7a-4a3c-b664-81ac43436dfa", "delta": "IS3 mutation."}
 
-data: {"type": "TEXT_MESSAGE_CONTENT", "messageId": "159bc119-05df-48e3-afc5-0f55ec04aa7b", "delta": "cases in this cohort "}
+data: {"type": "TEXT_MESSAGE_CONTENT", "messageId": "dd490da6-2e7a-4a3c-b664-81ac43436dfa", "delta": " The tool returned status"}
 
-data: {"type": "TEXT_MESSAGE_CONTENT", "messageId": "159bc119-05df-48e3-afc5-0f55ec04aa7b", "delta": "have a DIS3 mutation.\n\n**Limits:** "}
+data: {"type": "TEXT_MESSAGE_CONTENT", "messageId": "dd490da6-2e7a-4a3c-b664-81ac43436dfa", "delta": " \"none_in_cohort"}
 
-data: {"type": "TEXT_MESSAGE_CONTENT", "messageId": "159bc119-05df-48e3-afc5-0f55ec04aa7b", "delta": "The data is synthetic "}
+data: {"type": "TEXT_MESSAGE_CONTENT", "messageId": "dd490da6-2e7a-4a3c-b664-81ac43436dfa", "delta": "\", so there"}
 
-data: {"type": "TEXT_MESSAGE_CONTENT", "messageId": "159bc119-05df-48e3-afc5-0f55ec04aa7b", "delta": "and has no clinical "}
+data: {"type": "TEXT_MESSAGE_CONTENT", "messageId": "dd490da6-2e7a-4a3c-b664-81ac43436dfa", "delta": " is no lollipop to"}
 
-data: {"type": "TEXT_MESSAGE_CONTENT", "messageId": "159bc119-05df-48e3-afc5-0f55ec04aa7b", "delta": "meaning. Numbers are for "}
+data: {"type": "TEXT_MESSAGE_CONTENT", "messageId": "dd490da6-2e7a-4a3c-b664-81ac43436dfa", "delta": " dra"}
 
-data: {"type": "TEXT_MESSAGE_CONTENT", "messageId": "159bc119-05df-48e3-afc5-0f55ec04aa7b", "delta": "the default view and "}
+data: {"type": "TEXT_MESSAGE_CONTENT", "messageId": "dd490da6-2e7a-4a3c-b664-81ac43436dfa", "delta": "w for this"}
 
-data: {"type": "TEXT_MESSAGE_CONTENT", "messageId": "159bc119-05df-48e3-afc5-0f55ec04aa7b", "delta": "don't reflect changes made "}
+data: {"type": "TEXT_MESSAGE_CONTENT", "messageId": "dd490da6-2e7a-4a3c-b664-81ac43436dfa", "delta": " cohort.\n\nLimits"}
 
-data: {"type": "TEXT_MESSAGE_CONTENT", "messageId": "159bc119-05df-48e3-afc5-0f55ec04aa7b", "delta": "in the chart."}
+data: {"type": "TEXT_MESSAGE_CONTENT", "messageId": "dd490da6-2e7a-4a3c-b664-81ac43436dfa", "delta": ":\n- The"}
 
-data: {"type": "RAW", "event": {"event": {"metadata": {"usage": {"inputTokens": 2158, "outputTokens": 269, "totalTokens": 2427}, "metrics": {"latencyMs": 2290}}}}, "source": "strands"}
+data: {"type": "TEXT_MESSAGE_CONTENT", "messageId": "dd490da6-2e7a-4a3c-b664-81ac43436dfa", "delta": " data is synthetic and"}
 
-data: {"type": "TEXT_MESSAGE_END", "messageId": "159bc119-05df-48e3-afc5-0f55ec04aa7b"}
+data: {"type": "TEXT_MESSAGE_CONTENT", "messageId": "dd490da6-2e7a-4a3c-b664-81ac43436dfa", "delta": " has no clinical meaning"}
 
-data: {"type": "MESSAGES_SNAPSHOT", "messages": [{"id": "ac2b6488-b03a-49a1-af0f-5d03d583dbaf", "role": "user", "content": "Show a lollipop plot for DIS3."}, {"id": "8342a20a-fc74-40c4-8b5c-a5580f49afaf", "role": "assistant", "content": "Plan: call the lollipop tool for DIS3 on the current cohort, then report its results."}, {"id": "8fb92903-fa3a-4301-977f-fa129eef1f23", "role": "assistant", "content": "", "toolCalls": [{"id": "tooluse_7yQvdo1E5pjnmhgqTTR1LP", "type": "function", "function": {"name": "virtual-lab___show_lollipop", "arguments": "{\"gene\":\"DIS3\"}"}}]}, {"id": "d3adddfa-b47d-4eec-9727-94b04919a93e", "role": "tool", "content": "{\"status\":\"none_in_cohort\",\"summary\":\"0 of 6 cases in this cohort have a DIS3 mutation.\",\"gene\":\"DIS3\",\"cohort\":{\"label\":\"Race: white; Sex: male; Vital Status: Alive; CGS Risk Category: High risk\",\"caseCount\":6,\"revision\":1}}", "toolCallId": "tooluse_7yQvdo1E5pjnmhgqTTR1LP"}, {"id": "159bc119-05df-48e3-afc5-0f55ec04aa7b", "role": "assistant", "content": "**Observed:** 0 of 6 cases in this cohort have a DIS3 mutation.\n\n**Limits:** The data is synthetic and has no clinical meaning. Numbers are for the default view and don't reflect changes made in the chart."}]}
+data: {"type": "TEXT_MESSAGE_CONTENT", "messageId": "dd490da6-2e7a-4a3c-b664-81ac43436dfa", "delta": ".\n- Numbers are"}
+
+data: {"type": "TEXT_MESSAGE_CONTENT", "messageId": "dd490da6-2e7a-4a3c-b664-81ac43436dfa", "delta": " for the default view and don't re"}
+
+data: {"type": "TEXT_MESSAGE_CONTENT", "messageId": "dd490da6-2e7a-4a3c-b664-81ac43436dfa", "delta": "flect changes made in the ch"}
+
+data: {"type": "TEXT_MESSAGE_CONTENT", "messageId": "dd490da6-2e7a-4a3c-b664-81ac43436dfa", "delta": "art.\n- This cohort"}
+
+data: {"type": "TEXT_MESSAGE_CONTENT", "messageId": "dd490da6-2e7a-4a3c-b664-81ac43436dfa", "delta": " has only 6 cases,"}
+
+data: {"type": "TEXT_MESSAGE_CONTENT", "messageId": "dd490da6-2e7a-4a3c-b664-81ac43436dfa", "delta": " so a"}
+
+data: {"type": "TEXT_MESSAGE_CONTENT", "messageId": "dd490da6-2e7a-4a3c-b664-81ac43436dfa", "delta": " count"}
+
+data: {"type": "TEXT_MESSAGE_CONTENT", "messageId": "dd490da6-2e7a-4a3c-b664-81ac43436dfa", "delta": " of 0 says"}
+
+data: {"type": "TEXT_MESSAGE_CONTENT", "messageId": "dd490da6-2e7a-4a3c-b664-81ac43436dfa", "delta": " little about D"}
+
+data: {"type": "TEXT_MESSAGE_CONTENT", "messageId": "dd490da6-2e7a-4a3c-b664-81ac43436dfa", "delta": "IS3 m"}
+
+data: {"type": "TEXT_MESSAGE_CONTENT", "messageId": "dd490da6-2e7a-4a3c-b664-81ac43436dfa", "delta": "utation frequency in general."}
+
+data: {"type": "RAW", "event": {"event": {"metadata": {"usage": {"inputTokens": 2267, "outputTokens": 152, "totalTokens": 2419}, "metrics": {"latencyMs": 1546}}}}, "source": "strands"}
+
+data: {"type": "TEXT_MESSAGE_END", "messageId": "dd490da6-2e7a-4a3c-b664-81ac43436dfa"}
+
+data: {"type": "MESSAGES_SNAPSHOT", "messages": [{"id": "37429c70-7fcb-4a96-8193-657299acb8d1", "role": "user", "content": "Show a lollipop plot for DIS3."}, {"id": "bef8ca87-7dc0-4874-932d-d5e5d68bf1f2", "role": "assistant", "content": "Plan: call the lollipop tool for DIS3 with the current cohort, then report the result."}, {"id": "1b70a1fe-9da9-4467-9790-938aad75c5ee", "role": "assistant", "content": "", "toolCalls": [{"id": "tooluse_RK3npUq11KwtCYVdPShsDf", "type": "function", "function": {"name": "virtual-lab___show_lollipop", "arguments": "{\"gene\":\"DIS3\"}"}}]}, {"id": "8509362a-19a7-4c3f-b99a-8a0a27ac776e", "role": "tool", "content": "{\"status\":\"none_in_cohort\",\"summary\":\"0 of 6 cases in this cohort have a DIS3 mutation.\",\"gene\":\"DIS3\",\"cohort\":{\"label\":\"Race: white; Sex: male; Vital Status: Alive; CGS Risk Category: High risk\",\"caseCount\":6,\"revision\":1}}", "toolCallId": "tooluse_RK3npUq11KwtCYVdPShsDf"}, {"id": "dd490da6-2e7a-4a3c-b664-81ac43436dfa", "role": "assistant", "content": "Observed:\n- 0 of 6 cases in this cohort have a DIS3 mutation. The tool returned status \"none_in_cohort\", so there is no lollipop to draw for this cohort.\n\nLimits:\n- The data is synthetic and has no clinical meaning.\n- Numbers are for the default view and don't reflect changes made in the chart.\n- This cohort has only 6 cases, so a count of 0 says little about DIS3 mutation frequency in general."}]}
 
 data: {"type": "STATE_SNAPSHOT", "snapshot": {"cohort": {"filter": {"and": [{"in": {"demographic.race": ["white"]}}, {"in": {"demographic.gender": ["male"]}}, {"in": {"demographic.vital_status": ["Alive"]}}, {"in": {"cgs_risk_key_criteria.cgs_risk_category": ["High risk"]}}]}, "label": "Race: white; Sex: male; Vital Status: Alive; CGS Risk Category: High risk", "caseCount": 6, "revision": 1, "changedOutsideChat": false}}}
 
-data: {"type": "RUN_FINISHED", "threadId": "hand-edited-none-in-cohort", "runId": "3d8a673a-1cbd-4b89-b3f1-d52bede247d2", "outcome": {"type": "success"}, "usage": [{"provider": "bedrock", "model": "us.anthropic.claude-haiku-5-5", "inputTokens": 4144, "outputTokens": 402, "totalTokens": 4546}]}
+data: {"type": "RUN_FINISHED", "threadId": "23288525-ce0c-4787-a43c-d000ca6c450c", "runId": "f687c673-aa42-42d0-8434-abd65e27d9c6", "outcome": {"type": "success"}, "usage": [{"provider": "bedrock", "model": "us.anthropic.claude-haiku-5-5", "inputTokens": 4276, "outputTokens": 291, "totalTokens": 4567}]}
 

@@ -111,10 +111,33 @@ Run on 2026-11-03 against the deployed agent. Streams are in `tests/fixtures/`. 
 | `ambiguous`, `unknown_field`, `no_data_for_gene` | Each reported as a result. The cohort stays unchanged |
 | Tool failure | Reported as a failure, with no guessed result. Recorded by sending a malformed `state.cohort` filter, so `tool-failure.sse` holds that filter in its `STATE_SNAPSHOT` |
 | `check_numbers` | No unsupported numbers in any saved stream. It counts the state's case count as a source and ignores list markers at a line start. The first run flagged the `ambiguous` answer for both |
-| `none-in-cohort.sse` | **Hand-edited** until re-recorded after the next deploy. It's a real run's stream with the tool result and answer rewritten. Its thread ID says so |
+| `none-in-cohort.sse`, `journey-oncomatrix.sse` | Re-recorded from the deployed agent after the fixes below |
 
-**Found broken, fixed in code, pending deploy:** `none_in_cohort` failed live. ProteinPaint omits `sampleTotalNumber` when no sample in the cohort has a mutation in the gene, so the deployed `show_lollipop` returns `status: error`. The code now treats that reply as 0 samples, and any other malformed track stays an error. This passes the unit tests and against the local stack, but hasn't run on the deployed agent.
+**Found broken and fixed:** `none_in_cohort` failed live, because ProteinPaint omits `sampleTotalNumber` when no sample in the cohort has a mutation in the gene. The tool now treats that reply as 0 samples, and any other malformed track stays an error. `show_oncomatrix`'s summary now gives gene counts in samples, and the system prompt says to keep that unit. Follow-up buttons in tool output threw "Composer is not available" after sending, so they no longer clear the composer.
 
-**Also pending deploy:** `show_oncomatrix`'s summary now gives gene counts in samples, such as "KRAS (148 samples)", and the system prompt says to keep the summary's unit. The saved streams, including `journey-oncomatrix.sse`, hold the earlier wording until they're re-recorded.
+### Acceptance checks in a browser
 
+Run on 2026-11-03 through the Chrome DevTools MCP: local Chat, deployed agent. Numbers are compared with the chart and cohort bar on the same page.
+
+| Check | What the page showed |
+| --- | --- |
+| "What's mutated in Black patients?" | Cohort bar 1,000 to 334. Answer and OncoMatrix agree: KRAS 148, NRAS 113, DIS3 98, BRAF 76, MYC 62, TP53 38 |
+| "Top 3 genes" | The same 3 genes and counts in the answer and matrix. The chart header counts 251 samples with a mutation in those genes, and the answer gives the cohort's 287 |
+| Lollipop for KRAS | Answer and chart agree: 148 samples, 14 variants, p.Q61H 38. The sample list wasn't opened |
+| Named and open-ended wording | "Show a Lollipop plot for KRAS" and "Where do KRAS mutations fall on the protein?" reach the same result |
+| Change the cohort, then ask | The answer opens with "Now using" and uses the new cohort. The request's `changedOutsideChat` is true once, then false |
+| Undo | Cohort restored, and older charts keep their labels |
+| "Only women", then "white patients", then "black patients instead" | Adds Sex (500 cases), adds Race (167), then replaces Race and keeps Sex |
+| "Only smokers" | `unknown_field`. Cohort unchanged |
+| "Only Hispanic patients" | `ambiguous` and asks, in 6 of 6 new threads and a new browser thread. Clicking an option sets the cohort (502 cases). In one long thread about race, the model tried Race first and got `unknown_value`, with the cohort unchanged |
+| Filters matching nobody | `would_be_empty`. Cohort unchanged |
+| BRCA1 | `no_data_for_gene`, listing the genes covered |
+| DIS3 in a cohort of 6 | `none_in_cohort`: "0 of 6 cases", stated as a result |
+| Wrong login in the secret | Health and OncoMatrix steps show Failed. No numbers from them, and the cohort is unchanged. Login restored afterwards |
+| Tool schemas | No tool offers a cohort parameter |
+| More turns in one thread | Earlier turns and charts stay on screen. Chart requests in the server log didn't rise over turns that drew no chart |
+
+The standalone OncoMatrix page wasn't opened for comparison. Chat draws the same component with the same filter.
+
+**Local dev:** after refreshing AWS credentials, restart `next dev`. Until then Chat shows `HTTP 502`, and the log shows a `SyntaxError` for what is a 403 from AWS.
 `terraform destroy` hasn't been run.
