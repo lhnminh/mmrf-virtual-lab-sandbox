@@ -10,6 +10,8 @@ module "agentcore" {
   sandbox_origin = "https://${aws_cloudfront_distribution.sandbox[0].domain_name}"
   agent_zip_path = coalesce(var.agent_zip_path, "${path.module}/../agentcore/build/agent.zip")
   source_dir     = "${path.module}/../agentcore"
+
+  knowledge_gateway_url = one(module.knowledge_graph[*].gateway_url)
 }
 
 # Chat on the deployed site: the identity pod invokes the agent with the node role.

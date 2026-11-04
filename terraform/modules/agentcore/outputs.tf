@@ -17,3 +17,8 @@ output "access_secret_arn" {
   description = "Secret that set_access_secret.py fills with the Virtual Lab login."
   value       = aws_secretsmanager_secret.access.arn
 }
+
+output "runtime_role_name" {
+  description = "Name of the Runtime's role, for grants made outside this module."
+  value       = aws_iam_role.runtime.name
+}

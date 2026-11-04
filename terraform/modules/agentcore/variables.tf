@@ -68,3 +68,9 @@ variable "source_dir" {
   description = "Folder that holds lambda/ and build/."
   type        = string
 }
+
+variable "knowledge_gateway_url" {
+  description = "URL of the knowledge graph's Gateway. When set, the agent also gets those tools."
+  type        = string
+  default     = null
+}

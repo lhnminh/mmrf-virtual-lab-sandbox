@@ -131,13 +131,16 @@ resource "aws_bedrockagentcore_agent_runtime" "agent" {
     server_protocol = "AGUI"
   }
 
-  environment_variables = {
-    AGENT_REGION            = var.region
-    GATEWAY_URL             = aws_bedrockagentcore_gateway.tools.gateway_url
-    MODEL_ID                = var.model_id
-    GATEWAY_TIMEOUT_SECONDS = tostring(var.tool_timeout_seconds)
-    MAX_OUTPUT_TOKENS       = tostring(var.max_output_tokens)
-  }
+  environment_variables = merge(
+    {
+      AGENT_REGION            = var.region
+      GATEWAY_URL             = aws_bedrockagentcore_gateway.tools.gateway_url
+      MODEL_ID                = var.model_id
+      GATEWAY_TIMEOUT_SECONDS = tostring(var.tool_timeout_seconds)
+      MAX_OUTPUT_TOKENS       = tostring(var.max_output_tokens)
+    },
+    var.knowledge_gateway_url == null ? {} : { KG_GATEWAY_URL = var.knowledge_gateway_url },
+  )
 
   # The role's permissions must exist before Runtime validates it.
   depends_on = [aws_iam_role_policy.runtime]

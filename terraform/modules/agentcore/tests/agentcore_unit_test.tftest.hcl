@@ -107,3 +107,25 @@ run "rejects_origin_with_a_path" {
 
   expect_failures = [var.sandbox_origin]
 }
+
+run "runtime_has_no_graph_url_by_default" {
+  command = plan
+
+  assert {
+    condition     = !contains(keys(aws_bedrockagentcore_agent_runtime.agent.environment_variables), "KG_GATEWAY_URL")
+    error_message = "With no graph, the Runtime's environment must not change."
+  }
+}
+
+run "runtime_gets_the_graph_url_when_set" {
+  command = plan
+
+  variables {
+    knowledge_gateway_url = "https://graph.example.invalid/mcp"
+  }
+
+  assert {
+    condition     = aws_bedrockagentcore_agent_runtime.agent.environment_variables["KG_GATEWAY_URL"] == "https://graph.example.invalid/mcp"
+    error_message = "The agent needs the KG Gateway's URL."
+  }
+}

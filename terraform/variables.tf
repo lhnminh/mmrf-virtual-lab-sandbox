@@ -66,3 +66,13 @@ variable "agent_zip_path" {
   type        = string
   default     = null
 }
+variable "enable_knowledge_graph" {
+  description = "Create the knowledge graph: a private VPC, Neptune, two Lambdas and a Gateway."
+  type        = bool
+  default     = false
+}
+variable "knowledge_graph_zip_path" {
+  description = "Lambda package. Defaults to the output of knowledge-graph/scripts/build_lambda.py."
+  type        = string
+  default     = null
+}

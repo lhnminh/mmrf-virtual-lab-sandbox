@@ -1,4 +1,7 @@
 mock_provider "aws" {
+  alias = "knowledge_graph"
+}
+mock_provider "aws" {
   # AWS publishes the zero-TTL settings in the managed-policy documentation:
   # https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/using-managed-cache-policies.html#managed-cache-policy-caching-disabled
   # https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/using-managed-origin-request-policies.html#managed-origin-request-policy-all-viewer

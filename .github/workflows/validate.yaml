@@ -36,3 +36,14 @@ jobs:
         run: |
           terraform init -backend=false
           terraform test
+      - working-directory: terraform/modules/knowledge-graph
+        run: |
+          terraform init -backend=false
+          terraform test
+  knowledge-graph:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - working-directory: knowledge-graph
+        run: uv run pytest -q
