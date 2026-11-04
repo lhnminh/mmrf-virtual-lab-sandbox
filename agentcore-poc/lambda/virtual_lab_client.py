@@ -3,11 +3,13 @@ import base64
 import json
 import re
 import urllib.error
+import urllib.parse
 import urllib.request
 
 HTTP_TIMEOUT_SECONDS = 20
 _NAME = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 _GENOME = {"genome": "hg38", "dslabel": "MMRF"}
+_SURVIVAL_COLUMNS = ("seriesId", "time", "survival", "nevent", "ncensor", "nrisk")
 
 
 class ClientError(Exception):
@@ -25,9 +27,7 @@ class VirtualLabClient:
         self._headers = {"Authorization": f"Basic {token}", "Content-Type": "application/json"}
         self._opener = opener or urllib.request.build_opener()
 
-    def _post(self, path, body):
-        request = urllib.request.Request(
-            self._origin + path, data=json.dumps(body).encode(), headers=self._headers, method="POST")
+    def _send(self, request):
         try:
             with self._opener.open(request, timeout=HTTP_TIMEOUT_SECONDS) as response:
                 raw = response.read()
@@ -41,6 +41,21 @@ class VirtualLabClient:
             return json.loads(raw)
         except ValueError:
             raise ClientError("unhealthy", "The Virtual Lab sent a response that wasn't JSON.") from None
+
+    def _post(self, path, body):
+        return self._send(urllib.request.Request(
+            self._origin + path, data=json.dumps(body).encode(), headers=self._headers, method="POST"))
+
+    def _get(self, path, query):
+        """GET a ProteinPaint route. Some, such as termdb/config, don't accept POST."""
+        values = {name: value if isinstance(value, str) else json.dumps(value)
+                  for name, value in {**_GENOME, **query}.items()}
+        reply = self._send(urllib.request.Request(
+            f"{self._origin}/protein-paint/{path}?{urllib.parse.urlencode(values)}",
+            headers=self._headers, method="GET"))
+        if not isinstance(reply, dict):
+            raise ClientError("unhealthy", "The Virtual Lab sent an unexpected response.")
+        return reply
 
     def _guppy(self, query, cohort_filter):
         body = self._post("/guppy/graphql", {"query": query, "variables": {"f": cohort_filter}})
@@ -123,3 +138,30 @@ class VirtualLabClient:
                 or (total == 0) != (not variants)):
             raise ClientError("unhealthy", "The lollipop data was missing.")
         return {"sampleTotalNumber": total, "skewer": variants}
+
+    def survival_term(self):
+        """The dataset's own survival term, whose name may differ outside the sandbox."""
+        reply = self._get("termdb/config", {"embedder": "localhost"})
+        try:
+            return reply["termdbConfig"]["loneTermByType"][""]["survival"]
+        except (KeyError, TypeError):
+            raise ClientError("unhealthy", "The dataset doesn't offer a survival term.") from None
+
+    def comparison_term(self, term_id):
+        reply = self._get("termdb/termchildren", {"filter": {"type": "tvslst", "in": True, "join": "", "lst": []}})
+        terms = reply.get("lst")
+        if not isinstance(terms, list):
+            raise ClientError("unhealthy", "The dataset's field list was incomplete.")
+        return next((term for term in terms if isinstance(term, dict) and term.get("id") == term_id), None)
+
+    def survival(self, survival_term, compare_term, cohort_filter):
+        """The curve the chart draws. The service requires $id, and answers errors with HTTP 200."""
+        body = {"term1": {"$id": "survival", "term": survival_term, "q": {}}}
+        if compare_term:
+            body["term2"] = {"$id": "compare", "term": compare_term, "q": {"type": "values"}}
+        reply = self._paint("termdb/survival", body, cohort_filter or {"and": []})
+        keys = reply.get("keys")
+        if reply.get("error") or not isinstance(reply.get("case"), list) or not isinstance(keys, list) \
+                or any(column not in keys for column in _SURVIVAL_COLUMNS):
+            raise ClientError("unhealthy", "The survival response was incomplete.")
+        return reply

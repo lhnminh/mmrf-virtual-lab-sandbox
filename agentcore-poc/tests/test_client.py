@@ -227,5 +227,77 @@ class Errors(unittest.TestCase):
         self.assertTrue(issubclass(client_module.ClientError, Exception))
 
 
+SURVIVAL_REPLY = {"keys": ["chartId", "seriesId", "time", "survival", "lower", "upper", "nevent", "ncensor", "nrisk"],
+                  "case": [["", "", 0, 1, 1, 1, 0, 0, 10]]}
+TERM = {"id": "overall_survival", "type": "survival"}
+
+
+def survival_client(reply):
+    opener = FakeOpener(reply=reply)
+    return VirtualLabClient("https://lab.example", LOGIN, opener=opener), opener
+
+
+class Survival(unittest.TestCase):
+    def test_config_uses_get(self):
+        client, opener = survival_client({"termdbConfig": {"loneTermByType": {"": {"survival": TERM}}}})
+        self.assertEqual(client.survival_term(), TERM)
+        request = opener.requests[0]
+        self.assertEqual(request.get_method(), "GET")
+        self.assertIn("/protein-paint/termdb/config?", request.full_url)
+        self.assertIn("dslabel=MMRF", request.full_url)
+
+    def test_missing_survival_term_is_unhealthy(self):
+        client, _ = survival_client({"termdbConfig": {"loneTermByType": {}}})
+        with self.assertRaises(ClientError) as caught:
+            client.survival_term()
+        self.assertEqual(caught.exception.step, "unhealthy")
+
+    def test_comparison_term_finds_by_id(self):
+        race = {"id": "race", "type": "categorical"}
+        client, opener = survival_client({"lst": [{"id": "gender"}, race]})
+        self.assertEqual(client.comparison_term("race"), race)
+        self.assertEqual(opener.requests[0].get_method(), "GET")
+        self.assertIn("/protein-paint/termdb/termchildren?", opener.requests[0].full_url)
+
+    def test_comparison_term_not_listed_is_none(self):
+        client, _ = survival_client({"lst": [{"id": "gender"}]})
+        self.assertIsNone(client.comparison_term("race"))
+
+    def test_all_cases_sends_an_empty_filter(self):
+        client, opener = survival_client(SURVIVAL_REPLY)
+        self.assertEqual(client.survival(TERM, None, None), SURVIVAL_REPLY)
+        body = json.loads(opener.requests[0].data)
+        self.assertEqual(opener.requests[0].get_method(), "POST")
+        self.assertEqual(body["filter0"], {"and": []})
+        self.assertEqual(body["term1"], {"$id": "survival", "term": TERM, "q": {}})
+        self.assertNotIn("term2", body)
+
+    def test_comparison_sends_the_cohort_and_term2(self):
+        client, opener = survival_client(SURVIVAL_REPLY)
+        client.survival(TERM, {"id": "race"}, COHORT)
+        body = json.loads(opener.requests[0].data)
+        self.assertEqual(body["filter0"], COHORT)
+        self.assertEqual(body["term2"], {"$id": "compare", "term": {"id": "race"}, "q": {"type": "values"}})
+
+    def test_error_field_in_reply_is_unhealthy(self):
+        client, _ = survival_client({"error": "term1 is missing $id"})
+        with self.assertRaises(ClientError) as caught:
+            client.survival(TERM, None, None)
+        self.assertEqual(caught.exception.step, "unhealthy")
+
+    def test_missing_column_is_unhealthy(self):
+        client, _ = survival_client({"keys": ["seriesId", "time", "survival", "nevent", "ncensor"], "case": []})
+        with self.assertRaises(ClientError) as caught:
+            client.survival(TERM, None, None)
+        self.assertEqual(caught.exception.step, "unhealthy")
+
+    def test_get_maps_a_refused_login(self):
+        error = urllib.error.HTTPError("https://lab.example", 401, "no", {}, None)
+        client = VirtualLabClient("https://lab.example", LOGIN, opener=FakeOpener(error=error))
+        with self.assertRaises(ClientError) as caught:
+            client.survival_term()
+        self.assertEqual(caught.exception.step, "auth_failed")
+
+
 if __name__ == "__main__":
     unittest.main()

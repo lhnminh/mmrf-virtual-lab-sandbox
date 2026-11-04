@@ -38,5 +38,14 @@ class ToolsJson(unittest.TestCase):
                     self.assertNotIn("filter", name.lower())
 
 
+    def test_show_survival_can_be_selected_by_either_wording(self):
+        tool = next(tool for tool in TOOLS if tool["name"] == "show_survival")
+        for words in ("Correlation Plot", "Kaplan-Meier", "survival analysis"):
+            with self.subTest(words=words):
+                self.assertIn(words, tool["description"])
+        self.assertIn("compareBy", tool["inputSchema"]["properties"])
+        self.assertNotIn("compareBy", tool["inputSchema"].get("required", []))
+
+
 if __name__ == "__main__":
     unittest.main()

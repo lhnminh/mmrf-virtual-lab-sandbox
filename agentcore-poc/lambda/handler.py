@@ -10,6 +10,7 @@ import urllib.request
 from results import failure, ok
 from tool_show_lollipop import show_lollipop
 from tool_show_oncomatrix import show_oncomatrix
+from tool_show_survival import show_survival
 from tool_update_cohort import update_cohort
 from virtual_lab_client import VirtualLabClient
 
@@ -101,7 +102,7 @@ def check_virtual_lab_health(args, *, fetch_status=fetch_status, read_login=read
 
 TOOLS = {"check_virtual_lab_health": check_virtual_lab_health}
 CLIENT_TOOLS = {"update_cohort": update_cohort, "show_oncomatrix": show_oncomatrix,
-                "show_lollipop": show_lollipop}  # These take (args, client).
+                "show_lollipop": show_lollipop, "show_survival": show_survival}  # These take (args, client).
 
 
 def handler(event, context):

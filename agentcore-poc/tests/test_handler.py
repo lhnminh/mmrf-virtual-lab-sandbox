@@ -76,6 +76,9 @@ class ClientToolRouting(unittest.TestCase):
         result = tool.handler({}, context_for("virtual-lab___update_cohort"))
         self.assertEqual((result["status"], result["step"]), ("error", "config_error"))
 
+    def test_show_survival_is_a_client_tool(self):
+        self.assertIn("show_survival", tool.CLIENT_TOOLS)
+
 
 class Health(unittest.TestCase):
     def test_healthy(self):

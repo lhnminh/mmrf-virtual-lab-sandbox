@@ -75,5 +75,19 @@
         "gene"
       ]
     }
+  },
+  {
+    "name": "show_survival",
+    "description": "Shows a Kaplan-Meier survival plot from the Correlation Plot tool for the researcher's selected cohort. Use it for survival analysis, Kaplan-Meier or overall survival, such as 'Using the Correlation Plot tool, perform Kaplan Meyer survival analysis to overlay CGS high-risk versus standard-risk' or 'Compare survival for high risk vs standard risk'. To compare groups, give compareBy. The result reports cases, deaths, censored cases, median survival and log-rank P-values, or says a comparison isn't available. It never takes a cohort, and only reports numbers; the plot is drawn for the researcher.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "compareBy": {
+          "type": "string",
+          "description": "What to split the curve by. One of: CGS risk, KRAS status, Sex, Race. Leave out for one curve."
+        }
+      },
+      "required": []
+    }
   }
 ]

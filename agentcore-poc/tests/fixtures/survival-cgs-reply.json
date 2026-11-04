@@ -1,0 +1,14 @@
+{
+  "keys": ["chartId", "seriesId", "time", "survival", "lower", "upper", "nevent", "ncensor", "nrisk"],
+  "case": [
+    ["", "High risk", 0, 1, 1, 1, 0, 0, 334],
+    ["", "High risk", 1.5, 0.8, 0.75, 0.85, 67, 10, 334],
+    ["", "High risk", 3.2149, 0.5, 0.45, 0.55, 100, 12, 257],
+    ["", "High risk", 7.0, 0.1, 0.05, 0.15, 125, 20, 145],
+    ["", "Standard risk", 0, 1, 1, 1, 0, 0, 666],
+    ["", "Standard risk", 4.0, 0.7, 0.65, 0.75, 200, 150, 666],
+    ["", "Standard risk", 8.92, 0.49, 0.44, 0.54, 109, 207, 316]
+  ],
+  "refs": {"bins": [], "byTermId": {}, "orderedKeys": {"chart": [""], "series": ["High risk", "Standard risk"]}},
+  "tests": {"": [{"series1": "High risk", "series2": "Standard risk", "pvalue": "4.6e-14"}]}
+}
