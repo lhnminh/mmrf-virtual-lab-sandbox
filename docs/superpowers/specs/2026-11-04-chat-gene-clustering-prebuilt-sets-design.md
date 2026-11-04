@@ -1,0 +1,165 @@
+# Chat gene clustering with prebuilt gene sets: design
+
+Date: 2026-11-04
+Status: design directed in conversation, awaiting review of this document. Nothing here has been built.
+Builds on: [`2026-11-04-chat-gene-clustering-tool-design.md`](2026-11-04-chat-gene-clustering-tool-design.md), which is live. Its rules and result format apply unless this document says otherwise.
+
+## Purpose
+
+**A researcher names a gene set in chat, and the agent generates the heatmap for that set on the active cohort.** "Show gene expression clustering for MEK" now does what the journey describes: Prebuilt gene set, then MEK. Without a named set, the tool stays on the top 20 variably expressed genes.
+
+MMRF merged what this needs to `theMMRF/mmrf-virtual-lab-sandbox`:
+
+- **PR #20** adds MSigDB 2023.2.Hs to ProteinPaint, as `termdbs.msigdb`.
+- **PR #21** adds a MEK expression program to the synthetic data.
+
+The user confirmed these are the prebuilt sets they were waiting for. Neither is on the fork's `main` yet.
+
+## Decisions
+
+| Decision | Choice | Source |
+| --- | --- | --- |
+| "MEK" means | `MEK_UP.V1_UP`. The answer names it, and says `MEK_UP.V1_DN` is available | User, option C |
+| Which sets | Any MSigDB set by name, with "MEK" as a shortcut | User, option A |
+| Partly covered sets | State the set's size, and point to the chart for how many genes were drawn | User, option A |
+| Clustering in the Lambda | Still none | Follows from the above |
+| No set named | Top 20, as today | Default, accepted |
+| Choosing a set | Only when the researcher mentions a pathway or set | Default, accepted |
+| MSigDB missing on a stack | `prebuilt_unavailable`, and the agent offers top 20. No silent fallback | Default, accepted |
+| Source of the gene list | The Lambda, which passes it to the chart | Default, accepted |
+| Knowledge graph handoff | Out of scope | Default, accepted |
+| Describing patterns or treatment meaning | Still banned. The MEK blocks are designed into the data | Default, accepted |
+
+## Scope
+
+**In scope:**
+
+- Merging PRs #20 and #21 into the fork, and deploying `frontend`, `proteinpaint` and the agent
+- An optional `geneSet` input on `show_gene_clustering`
+- A gene list route through the Chat UI and `MatrixWrapper`
+- Changing the prompt rule that declines named gene sets
+- Updating the journey document
+
+**Out of scope:**
+
+- Custom gene lists through chat
+- Showing `MEK_UP.V1_UP` and `MEK_UP.V1_DN` together
+- A knowledge graph link to this tool
+- Changes to the Gene Expression Clustering page
+
+## Tool: `show_gene_clustering`
+
+**New optional input:** `geneSet`, a string holding the name as the researcher said it.
+
+**Steps with `geneSet`:**
+
+1. Read the case count. Zero cases returns `no_cases`.
+2. Read `/protein-paint/genomes` on every call. No `genomes.hg38.termdbs.msigdb` returns `prebuilt_unavailable`.
+3. Resolve the name:
+   - "MEK", "MEK pathway", "MEK gene set" and "MEK signature", in any case, mean `MEK_UP.V1_UP`.
+   - Otherwise search with `findterm` on the `msigdb` dslabel. An exact match on a set's ID wins. One result is used. Several return `ambiguous`, with up to 5 options. None returns `gene_set_not_found`.
+4. Read the genes with `genesetByTermId`.
+5. A set over the size limit returns `gene_set_too_large`. An empty set returns `no_data`.
+
+Without `geneSet`, the tool behaves exactly as it does today.
+
+**Result, using the shortcut:**
+
+```json
+{
+  "status": "ok",
+  "summary": "167 cases. Gene expression heatmap of the MSigDB set MEK_UP.V1_UP, chosen for MEK. MEK_UP.V1_DN is also available. The set lists 195 genes, and the heatmap draws only those with expression data, so the chart shows how many. The clustering is on the chart, and red means high relative to the other samples.",
+  "cohort": { "label": "Race: black or african american, Sex: male", "caseCount": 167 },
+  "geneSet": { "id": "MEK_UP.V1_UP", "geneCount": 195 },
+  "plot": { "type": "gene_clustering", "genes": ["..."] }
+}
+```
+
+The numbers are examples. The 195 comes from the PR's description. The sentences about choosing for MEK and about `MEK_UP.V1_DN` appear only when the shortcut was used.
+
+| New status | When | What the researcher sees |
+| --- | --- | --- |
+| `prebuilt_unavailable` | This stack has no MSigDB | A message offering the top 20 heatmap, with no chart |
+| `ambiguous` | The name matches several sets | One question with up to 5 options, with no chart |
+| `gene_set_not_found` | The name matches no set | A message, with no chart |
+| `gene_set_too_large` | The set is over the limit | A message giving the set's size, with no chart |
+
+**Size limit:** one constant, `MAX_SET_GENES`. It starts at 500, the upper cutoff MMRF's config uses for gene set analysis, and Task 2's measurement can change it.
+
+**Result size:** `plot.genes` holds the set's symbols, which reach the model. At 500 symbols that's about 4 KB, against 8 KB for the 1000 gene reply measured earlier. The summary doesn't list the genes.
+
+## Conversation
+
+> **Researcher:** Show gene expression clustering for MEK in Black male patients.
+>
+> **Agent:** Plan: set the cohort, then generate the heatmap for the MEK gene set.
+>
+> *(Cohort row: Race and Sex applied, 167 cases, with Undo)*
+>
+> *(Heatmap, on 167 cases: Gene Expression Clustering · MEK_UP.V1_UP)*
+>
+> **Observed:** The cohort has 167 cases. I used the MSigDB set MEK_UP.V1_UP for MEK, and MEK_UP.V1_DN is also available. The set lists 195 genes, and the heatmap draws only those with expression data, so the chart shows how many.
+
+**Prompt rule, replacing the current one:** after `show_gene_clustering`, report only what its summary says. Never describe clusters or expression patterns, and never suggest what they mean for treatment. Pass `geneSet` only when the researcher names a pathway or gene set, and pass the name as they said it. Without one, the tool uses the top 20 variably expressed genes, and it can't use another number. If it returns `ambiguous`, ask one question that offers its options. If it returns `prebuilt_unavailable`, say so and offer the top 20 heatmap. Never invent a gene list.
+
+## Frontend
+
+- **`MatrixWrapper`:** gains an optional `genes` prop, passed as `arg.genes`. ProteinPaint's `geneset` component uses a given list before it looks at top genes.
+- **`GeneClusteringToolUI`:** passes `plot.genes` when present, or `plot.maxGenes` when not. With a set, the title adds its ID.
+
+## Stack
+
+The user limited the rollout to the images needed for testing: `frontend`, `proteinpaint` and the agent.
+
+- **Merge:** PRs #20 and #21 are on the fork's `main`, at `d3df43c`.
+- **`proteinpaint`:** built from the fork before PR #21 plus PR #20 alone. It has MSigDB, and its fixtures stay at generator version 8, matching the live `identity`, `seed` and Elasticsearch. Its `provenance.json` hash was compared with the live pod's.
+- **No reseed:** `identity`, `seed`, `guppy` and `analysis` aren't rebuilt.
+- **Not on the live stack:** PR #21's MEK program. Heatmaps show the real sets, on data without the designed MEK blocks. Adding it means rebuilding `identity`, `seed` and `proteinpaint` together.
+- **Mismatch with `main`:** a launcher rebuild from `main` produces generator version 9. A launcher deploy that rebuilds only some of those three images would mix versions, so it must rebuild all three.
+- **Cost:** the `proteinpaint` image grows by about 566 MB.
+
+## Acceptance checks
+
+**Unit tests (Lambda):**
+
+- Each spelling of the shortcut resolves to `MEK_UP.V1_UP`, and the summary names both sets.
+- A named set with one result, an exact ID among several, several results, and no results.
+- No MSigDB returns `prebuilt_unavailable`, with no search made.
+- The check for MSigDB runs on every call.
+- A set over the limit returns `gene_set_too_large`, with no `plot`.
+- `plot.genes` holds the symbols, and the summary doesn't list them.
+- Without `geneSet`, the result and requests are unchanged.
+
+**Unit tests (frontend):**
+
+- `getMatrixTrack` passes `genes`, and leaves the page's arguments as they were.
+- `GeneClusteringToolUI` passes `plot.genes`, and adds the set's ID to the title.
+
+**Live checks, on the deployed site:**
+
+1. "Show gene expression clustering" still gives the top 20.
+2. "...for MEK" gives `MEK_UP.V1_UP` with no click. The answer names both sets and the set's size.
+3. "...for MEK in Black male patients" reads 167 cases and samples. The chart's gene count is recorded.
+4. The heatmap fits the chat column, or scrolls without breaking the page. Its load time is recorded for 167 and 1,000 cases.
+5. A set with several matches asks one question, and answering it draws the chart.
+6. An unknown set returns `gene_set_not_found`, with no invented genes.
+7. "What does this pattern mean for treatment?" gets no pattern description or treatment suggestion.
+8. A cohort under 10 samples with a named set. Record what the chart does, and add a status if the answer misleads.
+9. The Gene Expression Clustering page shows prebuilt sets, and still opens on its start screen.
+10. `scripts/smoke.py` passes, and the earlier OncoMatrix, Lollipop and survival questions still answer.
+
+PR #21's MEK blocks aren't checked, because they aren't on this stack.
+
+## Unknowns to confirm while building
+
+- **`findterm` results:** how many sets a plain "MEK" or "hypoxia" search returns, and whether group terms come back alongside sets. The Lambda only uses sets.
+- **Reply shapes:** taken from `scripts/smoke.py`, not yet seen live. `genesetByTermId` returns a list, which the client's `_get` rejects today.
+- **Time limits:** whether these calls fit the Lambda's 20 second timeout on the deployed site.
+- **Seeding on AWS:** how the Helm seed job treats generator version 9. This matters only when PR #21's data is deployed.
+- **Chart limit:** whether a list this size draws through the route the top 20 uses. It's read from ProteinPaint's code, and hasn't been run.
+
+## Sources
+
+- `user-journey/gene-clustering-pr20-pr21-learnings.md` in the hackathon workspace. Its figures marked author-reported haven't been rerun.
+- `theMMRF/mmrf-virtual-lab-sandbox` PRs #20 and #21: `proteinpaint/genome.mjs`, `proteinpaint/dataset.mjs` and `scripts/smoke.py`.
+- `@sjcrh/proteinpaint-client`: `getGenes` and `getTwLst` in the `geneset` component.
