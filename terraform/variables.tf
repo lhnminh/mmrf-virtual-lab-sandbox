@@ -52,3 +52,8 @@ variable "enable_https" {
   type        = bool
   default     = false
 }
+variable "enable_agentcore" {
+  description = "Create AgentCore Gateway and its tool Lambda."
+  type        = bool
+  default     = false
+}
