@@ -75,7 +75,7 @@ export function createStrandsRunner({ execute,
         ...registeredTools.map(item => item.promptGuidance),
         ...(knowledgeGraph ? [KNOWLEDGE_GRAPH_PROMPT] : [])].join('\n'),
       messages: history.map(turn => ({ role: turn.role, content: [{ text: turn.content }] })),
-      tools: chatOnly ? [] : catalog.createTools({
+      tools: chatOnly ? [] : await catalog.createTools({
         toolFactory: tool,
         executors: selectedExecutors,
         context,

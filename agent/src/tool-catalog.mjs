@@ -69,7 +69,16 @@ export function createToolCatalog({ apps = WEBSITE_APPS, registrations = REGISTE
   return { list, createTools };
 }
 
-export const toolCatalog = createToolCatalog(process.env.KG_GATEWAY_URL ? {
-  apps: [...WEBSITE_APPS, KNOWLEDGE_GRAPH_APP],
-  registrations: [...REGISTERED_TOOLS, ...knowledgeGraphRegistrations()],
-} : {});
+// Discover afresh for each request so gateway changes need no app deployment.
+export async function discoverToolCatalog() {
+  if (!process.env.KG_GATEWAY_URL) return createToolCatalog();
+  return createToolCatalog({
+    apps: [...WEBSITE_APPS, KNOWLEDGE_GRAPH_APP],
+    registrations: [...REGISTERED_TOOLS, ...await knowledgeGraphRegistrations()],
+  });
+}
+
+export const toolCatalog = process.env.KG_GATEWAY_URL ? {
+  list: async options => (await discoverToolCatalog()).list(options),
+  createTools: async options => (await discoverToolCatalog()).createTools(options),
+} : createToolCatalog();
