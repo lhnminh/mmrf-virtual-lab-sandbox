@@ -141,6 +141,16 @@ try {
   // With 1,000 rows ProteinPaint hides row labels, so check the row exists.
   await expect(page.locator('[data-testid="sjpp-matrix-label-left"]').filter({hasText:/^KRAS$/}).first()).toBeAttached();
   await capture('expression-clustering');
+  // A real MSigDB set clusters on the members the synthetic panel contains.
+  await open('GeneExpression');
+  await page.getByRole('radio').nth(1).check();
+  await page.getByTestId('sjpp-geneSetEditUi-msigdb').locator('visible=true').first().click();
+  await page.getByPlaceholder('Search Gene Sets').pressSequentially('MEK_UP',{delay:50});
+  await page.getByText('MEK_UP.V1_UP',{exact:true}).locator('visible=true').first().click();
+  await expect(page.locator('body')).toContainText(new RegExp(`${female.length}\\s*Samples`),{timeout:60000});
+  const mekGenes = Number((await page.locator('body').innerText()).match(/(\d+)\s*Genes/)[1]);
+  expect(mekGenes).toBeGreaterThan(50);
+  await capture('expression-clustering-msigdb');
   await open('ProteinPaint');
   await page.getByRole('searchbox',{name:'Gene symbol, position, or alias'}).fill('c-Myc');
   await page.getByRole('searchbox',{name:'Gene symbol, position, or alias'}).press('Enter');
@@ -166,7 +176,7 @@ try {
   expect(mutationCurves.results.every(curve=>curve.donors.length>=10)).toBe(true);
   await expect(page.locator('body')).not.toContainText('Not enough survival data');
   await capture('mutation-survival');
-  console.log('PASS: selected-cohort expression clustering, ProteinPaint gene view, and mutation frequency');
+  console.log('PASS: selected-cohort expression clustering (top variable and MSigDB MEK_UP.V1_UP), ProteinPaint gene view, and mutation frequency');
   // Keep the production age-unit regression covered in the synthetic launch path.
   await open('CohortBuilder');
   async function renameCohort(name) {

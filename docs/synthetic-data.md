@@ -88,6 +88,22 @@ left (negative); put Absent first to show them on the right. Only the original
 36 genes have gene models, protein tracks, and single-cell values. Other genes
 appear in bulk expression and differential expression.
 
+### Prebuilt gene sets in clustering
+
+Gene Expression Clustering offers **Prebuilt gene set → MSigDB (2023.2.Hs)**,
+the same collection as the Virtual Lab, for example `MEK_UP.V1_UP`. The gene
+sets are real; the expression is synthetic. The panel covers about half of most
+sets (92 of 195 genes in `MEK_UP.V1_UP`), and clustering uses only the genes in
+the panel. No pathway program is simulated, so a set shows a coordinated
+pattern only where it overlaps the patterns above.
+
+The gene set database is St. Jude's public ProteinPaint build of
+[MSigDB](https://www.gsea-msigdb.org/gsea/msigdb/) 2023.2.Hs
+([CC BY 4.0](https://www.gsea-msigdb.org/gsea/msigdb_license_terms.jsp);
+Subramanian et al., 2005; Liberzon et al., 2015). It contains no KEGG or
+BioCarta subsets. The ProteinPaint Dockerfile downloads it at build time and
+verifies its checksum.
+
 ## Reference annotations
 
 `synthetic/public-proteins.json` records the UniProt accession, source URL, and
