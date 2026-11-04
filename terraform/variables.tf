@@ -52,3 +52,17 @@ variable "enable_https" {
   type        = bool
   default     = false
 }
+variable "enable_agentcore" {
+  description = "Create the AgentCore Runtime, Gateway and tool Lambda. Tools call the CloudFront origin, so this needs enable_https."
+  type        = bool
+  default     = false
+  validation {
+    condition     = !var.enable_agentcore || var.enable_https
+    error_message = "enable_agentcore needs enable_https."
+  }
+}
+variable "agent_zip_path" {
+  description = "Agent package. Defaults to the output of agentcore-poc/scripts/build_agent.sh."
+  type        = string
+  default     = null
+}

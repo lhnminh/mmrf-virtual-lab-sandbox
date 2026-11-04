@@ -1,5 +1,5 @@
 locals {
-  tool_schema_key = "tools-${filemd5("${path.module}/../lambda/tools.json")}.json"
+  tool_schema_key = "tools-${filemd5("${var.source_dir}/lambda/tools.json")}.json"
 }
 
 # The tool schema lives in S3 as AWS's full schema format, so tools can have nested inputs.
@@ -7,8 +7,8 @@ resource "aws_s3_object" "tool_schema" {
   bucket = aws_s3_bucket.agent_code.id
   # The hash in the key makes a changed schema update the target.
   key          = local.tool_schema_key
-  source       = "${path.module}/../lambda/tools.json"
-  source_hash  = filemd5("${path.module}/../lambda/tools.json")
+  source       = "${var.source_dir}/lambda/tools.json"
+  source_hash  = filemd5("${var.source_dir}/lambda/tools.json")
   content_type = "application/json"
 }
 

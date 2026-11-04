@@ -1,7 +1,7 @@
 data "archive_file" "tools" {
   type        = "zip"
-  source_dir  = "${path.module}/../lambda"
-  output_path = "${path.module}/../build/tools.zip"
+  source_dir  = "${var.source_dir}/lambda"
+  output_path = "${var.source_dir}/build/tools.zip"
   excludes    = ["__pycache__/**", "tools.json"]
 }
 

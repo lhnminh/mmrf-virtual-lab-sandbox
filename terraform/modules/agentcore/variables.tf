@@ -19,13 +19,11 @@ variable "sandbox_origin" {
 variable "region" {
   description = "AWS region for all resources."
   type        = string
-  default     = "us-west-2"
 }
 
 variable "name" {
   description = "Letters, digits and underscores for Runtime naming; converted to hyphens where a resource needs them."
   type        = string
-  default     = "mmrf_agentcore_poc"
   validation {
     condition     = can(regex("^[a-zA-Z][a-zA-Z0-9_]{0,40}$", var.name))
     error_message = "Use letters, digits and underscores, starting with a letter."
@@ -62,7 +60,11 @@ variable "max_output_tokens" {
 }
 
 variable "agent_zip_path" {
-  description = "Agent package built by scripts/build_agent.sh."
+  description = "Agent package built by agentcore-poc/scripts/build_agent.sh."
   type        = string
-  default     = "../build/agent.zip"
+}
+
+variable "source_dir" {
+  description = "Folder that holds lambda/ and build/."
+  type        = string
 }
