@@ -42,6 +42,9 @@ spec:
           {{- if eq $name "identity" }}
             - {name: SYNTHETIC_SANDBOX, value: '1'}
             - {name: PORT, value: '8080'}
+            {{- if $.Values.agentcore.runtimeArn }}
+            - {name: AGENTCORE_RUNTIME_ARN, value: {{ $.Values.agentcore.runtimeArn | quote }}}
+            {{- end }}
             {{- if $.Values.access.enabled }}
             - {name: SANDBOX_PUBLIC_ORIGIN, value: {{ required "access.publicOrigin is required" $.Values.access.publicOrigin | quote }}}
             {{- end }}

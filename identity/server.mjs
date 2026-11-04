@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 import { createIdentity } from './token.mjs';
 import { bridgePayload } from './cohorts.mjs';
 import { publicOrigin } from './access.mjs';
+import { createRuntimeClient } from './runtime-client.mjs';
 
 if (process.env.SYNTHETIC_SANDBOX !== '1') throw new Error('This service requires SYNTHETIC_SANDBOX=1');
 const identity = createIdentity();
@@ -31,6 +32,11 @@ for (const [name, value] of Object.entries(targets)) {
   if (url.protocol !== 'http:' || ![name, 'localhost', '127.0.0.1'].includes(url.hostname) ||
       url.username || url.password || url.pathname !== '/' || url.search || url.hash) throw new Error(`Invalid sandbox ${name} origin`);
 }
+// AGENTCORE_ENDPOINT exists for tests, so it can only name this machine.
+const runtimeEndpoint = process.env.AGENTCORE_ENDPOINT;
+if (runtimeEndpoint && !/^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(runtimeEndpoint)) throw new Error('Invalid AgentCore endpoint');
+const invokeRuntime = process.env.AGENTCORE_RUNTIME_ARN
+  ? createRuntimeClient({ arn: process.env.AGENTCORE_RUNTIME_ARN, endpoint: runtimeEndpoint }) : null;
 function json(res, value, status = 200) {
   res.writeHead(status, { 'content-type': 'application/json', 'cache-control': 'no-store' });
   res.end(JSON.stringify(value));
@@ -104,6 +110,11 @@ const server = http.createServer(async (req, res) => {
     if (path.startsWith('/guppy/')) { target = targets.guppy; targetPath = req.url.slice('/guppy'.length); }
     if (path.startsWith('/analysis/')) target = targets.analysis;
     if (path === '/agent/v1/prompts' && req.method === 'POST') {
+      if (invokeRuntime) {
+        const result = await invokeRuntime(await body(req));
+        res.writeHead(result.status, { 'content-type': 'application/json', 'cache-control': 'no-store' });
+        return res.end(result.body);
+      }
       target = targets.agent;
       targetPath = '/v1/prompts';
     }

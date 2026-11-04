@@ -31,6 +31,40 @@ test('prompt endpoint validates input and passes it to the runner', async () => 
   }
 });
 
+test('Runtime endpoints match the AgentCore contract and the prompt endpoint', async () => {
+  const toolCalls = [{
+    name: 'correlation_plot',
+    input: { primaryVariable: 'overall survival', secondaryVariable: 'CGS risk' },
+    status: 'success',
+    result: { summary: 'High risk n=339, Standard risk n=661; log-rank p=7.1e-60.', plot: { type: 'survival' } },
+  }];
+  const received = [];
+  const server = createAgentServer({ runPrompt: async request => {
+    received.push(request);
+    return { message: 'Survival differs by CGS risk.', toolCalls };
+  } });
+  const ping = await request(server, 'GET', '/ping');
+  assert.equal(ping.status, 200);
+  assert.deepEqual(ping.body, { status: 'Healthy' });
+
+  const journey1 = {
+    prompt: 'Compare overall survival for CGS high risk vs standard risk patients',
+    history: [{ role: 'user', content: 'Hello' }, { role: 'assistant', content: 'Hi' }],
+    context: { cohortFilter: { in: { gender: ['female'] } } },
+  };
+  const prompts = await request(server, 'POST', '/v1/prompts', journey1);
+  const invocations = await request(server, 'POST', '/invocations', journey1);
+  assert.equal(invocations.status, 200);
+  assert.deepEqual(invocations.body, prompts.body);
+  assert.deepEqual(invocations.body, { message: 'Survival differs by CGS risk.', toolCalls });
+  assert.deepEqual(received[1], received[0]);
+
+  const invalid = await request(server, 'POST', '/invocations', { prompt: '' });
+  assert.equal(invalid.status, 400);
+  const wrongMethod = await request(server, 'GET', '/invocations');
+  assert.equal(wrongMethod.status, 405);
+});
+
 test('chat-only runner carries conversation context without registering tools', async () => {
   class FakeAgent {
     constructor(config) {
