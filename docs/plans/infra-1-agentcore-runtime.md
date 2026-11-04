@@ -8,6 +8,8 @@ Tick the boxes as you go; this file is the chunk's status.
 
 Branch `task-1-agentcore-runtime`, not pushed. It can't merge before infra-3's F1, because `terraform/agentcore-runtime.tf` needs F1's `enable_agentcore` variable.
 
+**Update 2026-11-04, Chat on AWS:** the Virtual Lab is live at https://d2p04v1om3xfqc.cloudfront.net, and Chat reaches `mmrf_smoke_agent-mEvkp72vEB` through `identity`. Journey 1 returns 339 and 661 cases through that path, and a knowledge graph question works in Chat. Set by hand, so a rebuilt environment loses them: the EKS node's metadata hop limit (2, on the running instance; the next step is to add it to Terraform, which replaces the node), the node role's `invoke-agent-runtime` policy (Terraform's version expects a different Runtime name), and `AGENTCORE_RUNTIME_ARN` for the first deploy of a new environment. Rename the Runtime to a permanent name when convenient. Redeploys: `deploy --only <services>` and `deploy --config-only`.
+
 **Update 2026-11-04, knowledge graph (done first, by team decision):** the Runtime agent answers from the sister team's gateway `mmrf-kg-gateway-hjyd9sqogd` when `KG_GATEWAY_URL` is set (`agent/src/knowledge-graph.mjs`), using four named tools. `kg_run_readonly_query` is left out. Unlike other tools, the model sees the graph, evidence and limitations as well as `summary`, because it needs ids for its next call; that is an exception to contract 1. Verified live on the Runtime; not yet in Chat, which has no knowledge graph component. The Runtime now uses the shared role `mmrf-orchestrator-agent-runtime`, the renamed smoke role, which the knowledge graph team's Terraform grants gateway access. `agentcore-runtime.tf` still creates a separate `<name>-agent-runtime` role, so decide which one the real Runtime uses. The Virtual Lab deploy started this day; check its result before the steps below.
 
 **Working:**
@@ -83,13 +85,13 @@ Never add AI attribution and never commit .claude/.
 
 - [ ] 2.1 Add the ECR repository and execution role to `terraform/agentcore-runtime.tf`, gated by `enable_agentcore`; verify `terraform validate` and `terraform plan` show only those resources.
 - [ ] 2.2 Fill in `scripts/deploy_runtime.py`: build ARM64, push, create or update the Runtime with its settings; verify `aws_sandbox.py deploy` with `enable_agentcore` true creates it, and a rerun updates it.
-- [ ] 2.3 Invoke the Runtime from the AWS CLI with the journey 1 question; verify a successful `correlation_plot` call with 339 and 661 cases.
+- [x] 2.3 Invoke the Runtime from the AWS CLI with the journey 1 question; verify a successful `correlation_plot` call with 339 and 661 cases.
 
 ### R3. Chat through Runtime (stopping point: Chat on the AWS URL answers via Runtime)
 
-- [ ] 3.1 Give the EKS node role permission to invoke the Runtime; verify from an `identity` pod that the credentials are reachable.
+- [x] 3.1 Give the EKS node role permission to invoke the Runtime; verify from an `identity` pod that the credentials are reachable.
 - [x] 3.2 Make `identity` call the Runtime when `AGENTCORE_RUNTIME_ARN` is set; verify a test with a stub Runtime, and that the existing gateway tests still pass.
-- [ ] 3.3 Set the ARN in Helm values from `deploy_runtime.py`; verify the journey 1 question in Chat on the AWS URL shows the survival chart, and Runtime logs show the request.
+- [x] 3.3 Set the ARN in Helm values from `deploy_runtime.py`; verify the journey 1 question in Chat on the AWS URL shows the survival chart, and Runtime logs show the request.
 
 ### R4. Tools through Gateway (with infra-2, after its G3)
 
