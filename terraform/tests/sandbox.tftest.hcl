@@ -18,9 +18,11 @@ override_data {
   values = { names = ["us-east-1a", "us-east-1b"] }
 }
 variables {
-  sandbox_account_id = "123456789012"
-  operator_role_arn  = "arn:aws:iam::123456789012:role/SandboxOperator"
-  operator_cidrs     = ["192.0.2.1/32"]
+  # The local tfvars carry the live flags, so these tests set this one themselves.
+  enable_knowledge_graph = false
+  sandbox_account_id     = "123456789012"
+  operator_role_arn      = "arn:aws:iam::123456789012:role/SandboxOperator"
+  operator_cidrs         = ["192.0.2.1/32"]
 }
 run "isolated_synthetic_infrastructure" {
   command = plan
