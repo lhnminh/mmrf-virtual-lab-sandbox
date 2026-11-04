@@ -19,7 +19,7 @@
 - No frontend changes. `mmrf-data-commons` and the `frontend` pin in `sources.json` stay as they are.
 - Only Monarch and DisMech data. DisMech is pinned to commit `b1ca0b232b815a21b4ba95a62828c9979e9a49e7` (release `v0.1.46`).
 - Never commit DisMech data, real account IDs, CloudFront IDs or credentials. This repo is a public fork.
-- Region `us-west-2`. VPC `10.90.0.0/16`. Neptune engine `1.4.5.0`, `db.serverless`, 1 to 8 capacity units, encrypted, `iam_database_authentication_enabled = true`.
+- Region `us-west-2`. VPC `10.90.0.0/16`. Neptune engine `1.4.5.1`, `db.serverless`, 1 to 8 capacity units, encrypted, `iam_database_authentication_enabled = true`.
 - Resource name prefix `${var.name}-kg`. Gateway target name `kg-graph`, so tools appear as `kg-graph___kg_*`.
 - `handler.py` and `load_neo4j.py` stay byte-identical to the team's copies, unless Task 8's fallback says otherwise.
 - Don't push. Ask the team about the missing license before any push.
@@ -174,7 +174,7 @@ Use `mock_provider "aws" {}`, an `override_data` for `data.aws_availability_zone
 | Run | Assertions |
 | --- | --- |
 | `network_has_no_internet_path` | VPC CIDR is `10.90.0.0/16`, two subnets, no `aws_internet_gateway` or `aws_nat_gateway` in the module (confirm by review), S3 endpoint type `Gateway` |
-| `neptune_matches_the_spec` | Engine version `1.4.5.0`, `storage_encrypted`, `iam_database_authentication_enabled`, capacity `1` to `8`, instance class `db.serverless` |
+| `neptune_matches_the_spec` | Engine version `1.4.5.1`, `storage_encrypted`, `iam_database_authentication_enabled`, capacity `1` to `8`, instance class `db.serverless` |
 | `graph_role_is_read_only` | `jsondecode(aws_iam_role_policy.graph_neptune.policy).Statement[0].Action == "neptune-db:ReadDataViaQuery"` |
 | `ingest_role_reads_s3_and_writes_neptune` | Actions include `neptune-db:WriteDataViaQuery` and `s3:GetObject`, and the S3 resource ends in `/raw/*` |
 | `gateway_uses_iam_and_target_is_kg_graph` | `authorizer_type == "AWS_IAM"`, `protocol_type == "MCP"`, target name `kg-graph` |

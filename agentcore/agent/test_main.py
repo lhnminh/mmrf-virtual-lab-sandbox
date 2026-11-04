@@ -101,11 +101,12 @@ class KnowledgeGraphClients(unittest.TestCase):
         self.assertEqual(transport.call_args.kwargs["endpoint"], "https://graph.invalid/mcp")
 
     def test_a_stopped_probe_client_is_not_handed_to_the_agent(self):
+        made = [mock.MagicMock(name="virtual_lab"), mock.MagicMock(name="probe"), mock.MagicMock(name="graph")]
         with mock.patch.dict(os.environ, {"KG_GATEWAY_URL": "https://graph.invalid/mcp"}), \
-                mock.patch.object(main, "MCPClient", side_effect=lambda *a, **k: mock.MagicMock()) as client:
+                mock.patch.object(main, "MCPClient", side_effect=made):
             clients = main.gateway_clients()
-        probe = client.mock_calls and [c for c in clients if c.list_tools_sync.called]
-        self.assertEqual(probe, [])
+        made[1].__exit__.assert_called_once()
+        self.assertEqual(clients, [made[0], made[2]])
 
     def test_graph_outage_leaves_virtual_lab_tools_and_warns(self):
         broken = mock.MagicMock()

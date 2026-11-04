@@ -29,9 +29,10 @@ resource "aws_vpc_security_group_ingress_rule" "neptune_from_ingest" {
 
 # The graph can be rebuilt with load-graph, so destroying it keeps no snapshot.
 resource "aws_neptune_cluster" "graph" {
-  cluster_identifier                  = "${var.name}-cluster"
-  engine                              = "neptune"
-  engine_version                      = "1.4.5.0"
+  cluster_identifier = "${var.name}-cluster"
+  engine             = "neptune"
+  # 1.4.5.1, not the team's 1.4.5.0: AWS warns of issues in certain serverless configurations there.
+  engine_version                      = "1.4.5.1"
   neptune_subnet_group_name           = aws_neptune_subnet_group.graph.name
   vpc_security_group_ids              = [aws_security_group.neptune.id]
   storage_encrypted                   = true

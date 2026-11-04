@@ -47,8 +47,8 @@ run "neptune_matches_the_spec" {
   command = plan
 
   assert {
-    condition     = aws_neptune_cluster.graph.engine_version == "1.4.5.0"
-    error_message = "Use engine 1.4.5.0."
+    condition     = aws_neptune_cluster.graph.engine_version == "1.4.5.1"
+    error_message = "Use engine 1.4.5.1: AWS warns of serverless issues in 1.4.5.0."
   }
   assert {
     condition     = aws_neptune_cluster.graph.storage_encrypted
@@ -86,6 +86,10 @@ run "ingest_role_reads_s3_and_writes_neptune" {
   assert {
     condition     = contains(jsondecode(aws_iam_role_policy.ingest.policy).Statement[1].Action, "neptune-db:WriteDataViaQuery")
     error_message = "kg-ingest must be able to write."
+  }
+  assert {
+    condition     = contains(jsondecode(aws_iam_role_policy.ingest.policy).Statement[1].Action, "neptune-db:DeleteDataViaQuery")
+    error_message = "Neptune requires delete permission for any query with SET, which every loader write has."
   }
   assert {
     condition     = jsondecode(aws_iam_role_policy.ingest.policy).Statement[0].Action == "s3:GetObject"

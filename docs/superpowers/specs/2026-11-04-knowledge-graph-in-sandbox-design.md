@@ -74,7 +74,7 @@ The team's tool names and response format don't change. The Gateway target is na
 | File | Resources |
 | --- | --- |
 | `network.tf` | VPC `10.90.0.0/16`, two private subnets, a route table with no default route, an S3 gateway endpoint limited to the bucket |
-| `neptune.tf` | Subnet group, security group, encrypted cluster, one `db.serverless` instance, engine `1.4.5.0`, `iam_database_authentication_enabled = true` |
+| `neptune.tf` | Subnet group, security group, encrypted cluster, one `db.serverless` instance, engine `1.4.5.1`, `iam_database_authentication_enabled = true` |
 | `lambdas.tf` | `kg-graph` and `kg-ingest`, their roles, security groups and 7-day log groups |
 | `ingest.tf` | Bucket with a public access block and `force_destroy` |
 | `gateway.tf` | Gateway, narrow trust like `modules/agentcore`, the `kg-graph` target and its schema object in S3 |
@@ -159,7 +159,7 @@ How the tool calls look in Chat isn't part of acceptance, because frontend work 
 
 | Risk | Handling |
 | --- | --- |
-| IAM login on the cluster is untested. The team's cluster has it off, and their role policies may lack an action such as `neptune-db:connect` | Confirm the required actions in AWS's docs while planning. If signed connections still fail, turn it off, which doesn't replace the cluster, and record that the read-only role isn't enforced |
+| IAM login on the cluster is untested, because the team's cluster has it off. `kg-ingest` needs `neptune-db:DeleteDataViaQuery`, because Neptune requires it for any query with `SET`, and an action such as `neptune-db:connect` may also be needed | Confirm the required actions in AWS's docs while planning. If signed connections still fail, turn it off, which doesn't replace the cluster, and record that the read-only role isn't enforced |
 | `tools.json` in S3 may not accept `outputSchema` | Remove it if so. The Gateway still negotiates a protocol version without it, and the response is read from `content[0].text` either way |
 | Workshop role may block a resource | Found at apply. Stop and report what was blocked |
 | Long graph responses strain Haiku's 1,024-token output limit | Check in acceptance step 3, and raise `max_output_tokens` if answers are cut off |

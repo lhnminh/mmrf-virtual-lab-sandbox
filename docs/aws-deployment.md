@@ -110,6 +110,8 @@ are gone in the AWS console. There is no automatic shutdown.
 
 `destroy` also deletes the knowledge graph with no snapshot. `load-graph` can rebuild it after a new deploy.
 
+The graph can add 30 to 40 minutes. AWS can take 20 minutes or more to release the Lambdas' network interfaces, so `destroy` may stop with a `DependencyViolation` on a security group or subnet. If it does, wait and rerun `destroy` from the same checkout. Never discard the state.
+
 ## Operational notes
 
 - Resources incur charges until deleted, including while the browser is closed.

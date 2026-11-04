@@ -132,9 +132,9 @@ resource "aws_iam_role_policy" "ingest" {
         Resource = "${aws_s3_bucket.ingest.arn}/raw/*"
       },
       {
-        # MERGE needs read as well as write.
+        # MERGE needs read and write. SET always needs delete too, because it may replace a value.
         Effect   = "Allow"
-        Action   = ["neptune-db:ReadDataViaQuery", "neptune-db:WriteDataViaQuery"]
+        Action   = ["neptune-db:ReadDataViaQuery", "neptune-db:WriteDataViaQuery", "neptune-db:DeleteDataViaQuery"]
         Resource = local.neptune_data_arn
       },
     ]
