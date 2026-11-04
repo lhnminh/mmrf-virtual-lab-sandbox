@@ -6,6 +6,8 @@ Design: [`docs/superpowers/specs/2026-11-03-agentcore-agui-chat-design.md`](../d
 
 The Terraform is a module in the root stack, `terraform/modules/agentcore`, and stays off unless `enable_agentcore` is true. It needs `enable_https`, because tools call the CloudFront origin. These resources bill until destroyed.
 
+When `enable_knowledge_graph` is also true, the agent gets a second Gateway client through `KG_GATEWAY_URL`, for the `kg_*` tools in [`knowledge-graph/`](../knowledge-graph/README.md). If that Gateway doesn't answer when the agent starts, the agent logs a warning and runs with only its Virtual Lab tools. The cohort filter is only sent to `virtual-lab___` tools.
+
 ## Deploy
 
 Needs `uv`, Terraform and the `workshop` AWS profile. Through the launcher, run `init` with `--enable-agentcore`, then `deploy`: it builds the agent, applies and fills the tools' secret.

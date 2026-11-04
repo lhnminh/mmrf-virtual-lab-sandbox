@@ -67,6 +67,18 @@ After a failed or interrupted deployment, rerun `deploy` from the same
 checkout, adding `--skip-build` if the build finished. Existing local images
 must still be present.
 
+## Knowledge graph
+
+To also deploy the myeloma knowledge graph, run `init` with `--enable-knowledge-graph`, or set `"enable_knowledge_graph": true` in `generated/aws/config.json`. `deploy` then builds the Lambda package, creates a private VPC, Neptune, two Lambdas and a Gateway, and loads the graph from public sources. With AgentCore enabled, the agent gets the graph tools.
+
+To load the graph again, such as after a failed load:
+
+```sh
+python3 scripts/aws_sandbox.py load-graph
+```
+
+Rerunning is safe because every write is a `MERGE`. Neptune bills while idle at a minimum of 1 capacity unit, up to 8 under load. See [`knowledge-graph/README.md`](../knowledge-graph/README.md).
+
 ## Access and test
 
 ```sh
@@ -95,6 +107,8 @@ Review the destroy plan and confirm the account ID. Cleanup can take tens of
 minutes. Keep the checkout, `generated/aws/`, and Terraform state until cleanup
 succeeds; retry from that directory if interrupted. Verify the created resources
 are gone in the AWS console. There is no automatic shutdown.
+
+`destroy` also deletes the knowledge graph with no snapshot. `load-graph` can rebuild it after a new deploy.
 
 ## Operational notes
 
