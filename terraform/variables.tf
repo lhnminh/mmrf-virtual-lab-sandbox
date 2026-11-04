@@ -47,11 +47,6 @@ variable "vpc_cidr" {
     error_message = "Use an IPv4 /16 for the new isolated VPC."
   }
 }
-variable "enable_agentcore" {
-  description = "Create the AgentCore resources."
-  type        = bool
-  default     = false
-}
 variable "kg_gateway_arn" {
   description = "Knowledge graph AgentCore Gateway the agent may call; empty for none."
   type        = string
@@ -59,6 +54,11 @@ variable "kg_gateway_arn" {
 }
 variable "enable_https" {
   description = "Add a private ALB and CloudFront HTTPS entry point; Helm must enable the password-protected access service."
+  type        = bool
+  default     = false
+}
+variable "enable_agentcore" {
+  description = "Create AgentCore Gateway and its tool Lambda."
   type        = bool
   default     = false
 }

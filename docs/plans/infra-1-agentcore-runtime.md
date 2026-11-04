@@ -55,7 +55,7 @@ root `CLAUDE.md` for how it fits with infra-2 (tools on Gateway) and infra-3
 
 ## Files touched
 
-- `agent/src/http.mjs`, `agent/src/server.mjs`, `agent/src/team-login.mjs` (temporary), `scripts/runtime_smoke.py` (temporary), an ARM64 image build (a Dockerfile or build flag for the existing `docker/agent.Dockerfile`).
+- `agent/src/http.mjs`, `agent/src/server.mjs`, `scripts/runtime_smoke.py` (temporary), an ARM64 image build (a Dockerfile or build flag for the existing `docker/agent.Dockerfile`).
 - `terraform/agentcore-runtime.tf`, `scripts/deploy_runtime.py`.
 - `identity/server.mjs` and its image (it has no npm dependencies today; the Runtime call needs the AWS SDK or SigV4 signing).
 - Helm values for `identity` (`AGENTCORE_RUNTIME_ARN`).
@@ -179,7 +179,7 @@ In `agentcore-runtime.tf`, gated by `enable_agentcore`: the ECR repository, the 
 - The team uses account 548574235556 in `us-west-2`, but `terraform/variables.tf` defaults `region` to `us-east-1`. The real deploy must set `us-west-2`.
 - R3 code status: `identity/runtime-client.mjs` signs SigV4 by hand, uses a new session id per request, and was tested through the real `identity` server against the live Runtime (2.3 s, and a 400 for a bad body). Not yet tested on EKS: reading the node role from a pod (metadata hop limit), the `identity-agentcore` network policy, and the node role's invoke policy. `helm template` and `terraform plan` haven't run. `deploy_runtime.py` doesn't set `agentcore.runtimeArn` yet (task 3.3), because that needs F1's `ctx`.
 - Tasks 2.1 and 2.2 stay unticked until they run through `aws_sandbox.py`. `terraform/agentcore-runtime.tf` passes `terraform validate` only with a temporary `enable_agentcore` variable, which F1 will provide, and `terraform plan` hasn't run. `scripts/deploy_runtime.py` has run live through `scripts/runtime_smoke.py`, so check that F1's `ctx` matches the fields in its docstring.
-- Stand-ins for F1, to remove when it lands: `agent/src/team-login.mjs` (the team login; tested offline only) and `scripts/runtime_smoke.py` (repository, role and `ctx`; keep its role policy in step with Terraform).
+- Stand-in for F1, to remove when it lands: `scripts/runtime_smoke.py` (repository, role and `ctx`; keep its role policy in step with Terraform). `agent/src/team-login.mjs` is gone; `agent/src/virtual-lab-fetch.mjs` replaced it.
 - Task 2.3 needs a deployed sandbox: the live run was chat-only, so `correlation_plot` hasn't run on Runtime.
 - `aws_sandbox.py destroy` must call `deploy_runtime.destroy(ctx)` before Terraform's destroy. Terraform doesn't own the Runtime, so it would otherwise be left behind. This is outside infra-1's files; agree it with infra-3.
 - Owner (Dev 1).
