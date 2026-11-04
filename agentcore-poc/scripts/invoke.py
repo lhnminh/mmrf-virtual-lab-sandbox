@@ -12,7 +12,7 @@ import time
 import uuid
 from pathlib import Path
 
-TERRAFORM_DIR = Path(__file__).resolve().parents[1] / "terraform"
+TERRAFORM_DIR = Path(__file__).resolve().parents[2] / "terraform"
 COHORT_KEYS = ("filter", "label", "caseCount", "revision", "changedOutsideChat")
 
 

@@ -9,7 +9,7 @@ import os
 import subprocess
 from pathlib import Path
 
-TERRAFORM_DIR = Path(__file__).resolve().parents[1] / "terraform"
+TERRAFORM_DIR = Path(__file__).resolve().parents[2] / "terraform"
 
 
 def load_login(path: str) -> dict:
@@ -30,7 +30,7 @@ def main() -> None:
 
     login = load_login(args.access_file)
     secret_arn = subprocess.run(
-        ["terraform", "output", "-raw", "access_secret_arn"],
+        ["terraform", "output", "-raw", "agentcore_access_secret_arn"],
         cwd=TERRAFORM_DIR, check=True, capture_output=True, text=True,
     ).stdout
 
