@@ -2,6 +2,7 @@ import http from 'node:http';
 import { readFile } from 'node:fs/promises';
 import { resolve, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { Readable } from 'node:stream';
 import { createIdentity } from './token.mjs';
 import { bridgePayload } from './cohorts.mjs';
 import { publicOrigin } from './access.mjs';
@@ -37,6 +38,7 @@ const runtimeEndpoint = process.env.AGENTCORE_ENDPOINT;
 if (runtimeEndpoint && !/^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(runtimeEndpoint)) throw new Error('Invalid AgentCore endpoint');
 const invokeRuntime = process.env.AGENTCORE_RUNTIME_ARN
   ? createRuntimeClient({ arn: process.env.AGENTCORE_RUNTIME_ARN, endpoint: runtimeEndpoint }) : null;
+const AGUI_PATH = '/api/agent/agui'; // The Chat page's route; it's served here, not by Next.
 function json(res, value, status = 200) {
   res.writeHead(status, { 'content-type': 'application/json', 'cache-control': 'no-store' });
   res.end(JSON.stringify(value));
@@ -104,6 +106,22 @@ const server = http.createServer(async (req, res) => {
       if (path.endsWith('/status')) return json(res, { has_accepted_latest_terms: true, current_terms: terms });
       return json(res, { accepted: true, has_accepted_latest_terms: true, terms_version_id: 1 });
     }
+    if (path === AGUI_PATH && req.method === 'POST' && invokeRuntime) {
+      const payload = await body(req);
+      let threadId;
+      try { ({ threadId } = JSON.parse(payload)); } catch { threadId = undefined; }
+      if (typeof threadId !== 'string' || !threadId) return json(res, { error: 'A threadId is required' }, 400);
+      const result = await invokeRuntime.stream(payload, threadId);
+      if (!result.stream) {
+        res.writeHead(result.status, { 'content-type': 'application/json', 'cache-control': 'no-store' });
+        return res.end(result.body);
+      }
+      res.writeHead(200, { 'content-type': 'text/event-stream', 'cache-control': 'no-cache, no-transform' });
+      const events = Readable.fromWeb(result.stream);
+      res.on('close', () => events.destroy());
+      events.on('error', () => res.end());
+      return events.pipe(res);
+    }
     let target = targets.frontend;
     let targetPath = req.url;
     let targetMethod = req.method;
@@ -117,6 +135,10 @@ const server = http.createServer(async (req, res) => {
       }
       target = targets.agent;
       targetPath = '/v1/prompts';
+    }
+    if (path === AGUI_PATH && req.method === 'POST') {
+      target = targets.agent;
+      targetPath = '/v1/agui';
     }
     let ppBody;
     if (path.startsWith('/protein-paint/')) {

@@ -138,6 +138,30 @@ test('with a Runtime ARN, identity sends prompts to the Runtime and drops browse
   assert.equal(runtime.received[0].headers.cookie, undefined);
 });
 
+test('the Chat route streams to the Runtime with one session per thread', async t => {
+  const events = 'data: {"type":"RUN_STARTED"}\n\n';
+  const runtime = capture(events);
+  const runtimePort = await listen(runtime.server);
+  t.after(() => runtime.server.close());
+  const { child, port } = await startIdentity({ AGENTCORE_RUNTIME_ARN: ARN, AGENTCORE_ENDPOINT: `http://127.0.0.1:${runtimePort}`,
+    AWS_ACCESS_KEY_ID: 'AKID', AWS_SECRET_ACCESS_KEY: 'secret' });
+  t.after(() => child.kill());
+  const post = body => fetch(`http://127.0.0.1:${port}/api/agent/agui`, { method: 'POST',
+    headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
+  const reply = await post({ threadId: 'thread-1', messages: [] });
+  assert.equal(reply.status, 200);
+  assert.equal(reply.headers.get('content-type'), 'text/event-stream');
+  assert.equal(await reply.text(), events);
+  await post({ threadId: 'thread-1', messages: [] });
+  await post({ threadId: 'thread-2', messages: [] });
+  const sessions = runtime.received.map(call => call.headers['x-amzn-bedrock-agentcore-runtime-session-id']);
+  assert.equal(sessions[0], sessions[1]);
+  assert.notEqual(sessions[0], sessions[2]);
+  assert.ok(sessions[0].length >= 33);
+  assert.equal(runtime.received[0].headers.accept, 'text/event-stream');
+  assert.equal((await post({ messages: [] })).status, 400);
+});
+
 test('without a Runtime ARN, identity still uses the local agent', async t => {
   const local = capture('{"message":"from local agent","toolCalls":[]}');
   const localPort = await listen(local.server);

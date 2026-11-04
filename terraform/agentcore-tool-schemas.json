@@ -139,5 +139,55 @@
         "gene"
       ]
     }
+  },
+  {
+    "name": "show_survival",
+    "description": "Shows a Kaplan-Meier survival plot from the Correlation Plot tool for the researcher's selected cohort. Use it for survival analysis, Kaplan-Meier or overall survival, such as 'Using the Correlation Plot tool, perform Kaplan Meyer survival analysis to overlay CGS high-risk versus standard-risk' or 'Compare survival for high risk vs standard risk'. To compare groups, give compareBy. The result reports cases, deaths, censored cases, median survival and log-rank P-values, or says a comparison isn't available. It never takes a cohort, and only reports numbers; the plot is drawn for the researcher.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "compareBy": {
+          "type": "string",
+          "description": "What to split the curve by. One of: CGS risk, KRAS status, Sex, Race. Leave out for one curve."
+        },
+        "cohortFilterJson": {
+          "type": "string",
+          "description": "Selected website cohort, supplied by the agent"
+        }
+      },
+      "required": []
+    }
+  },
+  {
+    "name": "show_oncomatrix",
+    "description": "Shows which genes are most frequently mutated in the researcher's selected cohort, in OncoMatrix, with the number of cases and of samples with a mutation in the genes shown. Use it for questions such as 'which genes are most frequently mutated', 'top mutated genes' or 'show an OncoMatrix'. maxGenes is optional, for requests such as 'top 3'; it must be a whole number of 1 or more. It never takes a cohort, and only reports numbers; the chart is drawn for the researcher.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "maxGenes": {
+          "type": "integer",
+          "description": "How many top genes to show, a whole number of 1 or more. Leave out for the default."
+        },
+        "cohortFilterJson": {
+          "type": "string",
+          "description": "Selected website cohort, supplied by the agent"
+        }
+      },
+      "required": []
+    }
+  },
+  {
+    "name": "check_virtual_lab_health",
+    "description": "Check whether the Virtual Lab is healthy, and report how many synthetic cases it holds. Takes no input.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "cohortFilterJson": {
+          "type": "string",
+          "description": "Selected website cohort, supplied by the agent"
+        }
+      },
+      "required": []
+    }
   }
 ]

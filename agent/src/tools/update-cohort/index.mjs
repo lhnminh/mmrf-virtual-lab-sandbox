@@ -1,5 +1,5 @@
-import { cohortProposal, createWrappedTool } from '../shared.mjs';
-import { caseCount, caseIds, fieldValues } from '../virtual-lab.mjs';
+import { createWrappedTool, failure, ok, outcome } from '../shared.mjs';
+import { caseCount, fieldValues } from '../virtual-lab.mjs';
 import { applyChanges, cohortLabel } from './filter.mjs';
 import { resolveField, resolveValues } from './match.mjs';
 
@@ -27,7 +27,7 @@ export const spec = Object.freeze({
     required: ['changes'],
   },
 });
-export const promptGuidance = 'If the question changes who is in the cohort, call update_cohort before other tools. Comparing groups does not change the cohort. If update_cohort says a value is ambiguous, ask one question offering its options and run no other tools until answered. The change takes effect only when the researcher clicks the Save button under your answer, so say that and never say the cohort has already changed.';
+export const promptGuidance = 'If the question changes who is in the cohort, call update_cohort before other tools. Comparing groups does not change the cohort. If update_cohort says a value is ambiguous, ask one question offering its options and run no other tools until answered.';
 
 function validChanges(changes) {
   return Array.isArray(changes) && changes.length > 0 && changes.every(change =>
@@ -41,19 +41,24 @@ async function resolveChanges(changes, fetchImpl) {
   for (const change of changes) {
     const found = resolveField(change.field);
     if (found.closest) {
-      const options = found.closest.map(item => item.label).join(', ');
-      return { problem: `There's no cohort field called '${change.field}'.${options ? ` Closest fields: ${options}.` : ''}` };
+      return { problem: outcome('unknown_field', `There's no cohort field called '${change.field}'.`, { closest: found.closest }) };
     }
-    if (!found.supported) return { problem: `${found.label} is a number range, which isn't supported yet.` };
+    if (!found.supported) {
+      return { problem: outcome('unsupported_field', `${found.label} is a number range, which isn't supported yet.`,
+        { field: found.name, label: found.label }) };
+    }
     let values = [];
     if (change.op === 'set') {
       const available = await fieldValues(fetchImpl, found.name);
       const match = resolveValues(change.values, available);
+      const details = { field: found.name, label: found.label };
       if (match.ambiguous) {
-        return { problem: `'${match.ambiguous}' could mean more than one ${found.label} value: ${match.options.join(', ')}.` };
+        return { problem: outcome('ambiguous', `'${match.ambiguous}' could mean more than one ${found.label} value.`,
+          { ...details, requested: match.ambiguous, options: match.options }) };
       }
       if (match.unknown) {
-        return { problem: `${found.label} has no value like '${match.unknown}'. Available values: ${available.join(', ')}.` };
+        return { problem: outcome('unknown_value', `${found.label} has no value like '${match.unknown}'.`,
+          { ...details, requested: match.unknown, available }) };
       }
       ({ values } = match);
     }
@@ -64,20 +69,25 @@ async function resolveChanges(changes, fetchImpl) {
 
 export function createExecutor({ fetchImpl }) {
   return async ({ changes } = {}, { cohortFilter = null } = {}) => {
-    if (!validChanges(changes)) throw new Error('changes must list a field, an op of set or remove, and values for set');
+    if (!validChanges(changes)) return failure('invalid_input', 'changes must list a field, an op of set or remove, and values for set.');
     const { resolved, problem } = await resolveChanges(changes, fetchImpl);
-    if (problem) return { summary: `${problem} The cohort is unchanged.` };
-    const filter = applyChanges(cohortFilter, resolved);
+    if (problem) return problem;
+    let filter;
+    try {
+      filter = applyChanges(cohortFilter, resolved);
+    } catch {
+      return failure('unsupported_filter', 'This cohort has a filter chat can\'t edit. Change it in Cohort Builder.');
+    }
     const casesBefore = await caseCount(fetchImpl, cohortFilter);
     const casesAfter = await caseCount(fetchImpl, filter);
-    if (casesAfter === 0) return { summary: 'That change would leave no cases, so the cohort is unchanged.' };
-    const label = cohortLabel(filter);
-    return {
-      summary: `This change would take the cohort from ${casesBefore} to ${casesAfter} synthetic cases: ${label}.`,
-      // Chat offers plot.cohort, with its case ids, through the Save cohort button.
-      plot: { type: 'cohort_update', filter, label, changes: resolved, casesBefore, casesAfter,
-        cohort: cohortProposal(label, await caseIds(fetchImpl, filter)) },
-    };
+    if (casesAfter === 0) {
+      return outcome('would_be_empty', 'That change would leave no cases, so the cohort is unchanged.',
+        { changes: resolved, caseCount: 0 });
+    }
+    return ok(`The cohort went from ${casesBefore} to ${casesAfter} cases.`, {
+      changes: resolved, casesBefore, casesAfter, filter,
+      cohort: { label: cohortLabel(filter), caseCount: casesAfter },
+    });
   };
 }
 

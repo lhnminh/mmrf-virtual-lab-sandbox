@@ -4,6 +4,8 @@ import { applyChanges, cohortLabel } from '../src/tools/update-cohort/filter.mjs
 import { resolveField, resolveValues } from '../src/tools/update-cohort/match.mjs';
 import { createExecutor as updateCohort } from '../src/tools/update-cohort/index.mjs';
 import { createExecutor as showLollipop } from '../src/tools/show-lollipop/index.mjs';
+import { createExecutor as showSurvival } from '../src/tools/show-survival/index.mjs';
+import { createExecutor as showOncomatrix } from '../src/tools/show-oncomatrix/index.mjs';
 
 const RACE = 'demographic.race';
 const RACES = ['white', 'black or african american', 'asian', 'not reported'];
@@ -15,9 +17,6 @@ function virtualLab({ counts = [1000, 334], track, gene = { name: 'KRAS', chr: '
   const fetchImpl = async (path, options) => {
     const body = JSON.parse(options.body);
     calls.push({ path, body });
-    if (path === '/guppy/graphql' && body.query.includes('CaseCentric')) {
-      return respond({ data: { CaseCentric_case_centric: [{ case_id: 'b' }, { case_id: 'a' }] } });
-    }
     if (path === '/guppy/graphql' && body.query.includes('_totalCount')) {
       return respond({ data: { Case__aggregation: { case: { _totalCount: remaining.shift() } } } });
     }
@@ -73,34 +72,30 @@ test('labels describe the cohort', () => {
   assert.equal(cohortLabel({ or: [] }), 'Selected cases');
 });
 
-test('update_cohort applies a change and returns the new filter for the UI', async () => {
+test('update_cohort returns the merged filter and cohort', async () => {
   const { fetchImpl } = virtualLab();
   const result = await updateCohort({ fetchImpl })({ changes: [{ field: 'race', op: 'set', values: ['Black'] }] }, {});
-  assert.match(result.summary, /from 1000 to 334 synthetic cases/);
-  assert.doesNotMatch(result.summary, /went from/);
-  assert.deepEqual(result.plot.filter, { and: [{ in: { [RACE]: ['black or african american'] } }] });
-  assert.equal(result.plot.type, 'cohort_update');
-  // Chat's Save button reads plot.cohort.name and plot.cohort.caseIds.
-  assert.deepEqual(result.plot.cohort.caseIds, ['a', 'b']);
-  assert.equal(typeof result.plot.cohort.name, 'string');
+  assert.equal(result.status, 'ok');
+  assert.equal(result.summary, 'The cohort went from 1000 to 334 cases.');
+  assert.deepEqual(result.filter, { and: [{ in: { [RACE]: ['black or african american'] } }] });
+  assert.equal(result.cohort.caseCount, 334);
+  assert.equal(result.casesBefore, 1000);
+  assert.equal(result.changes[0].field, RACE);
 });
 
-test('update_cohort reports ambiguous, unknown and empty results without changing the cohort', async () => {
+test('update_cohort reports each outcome with its details', async () => {
   const run = (changes, lab = virtualLab()) => updateCohort({ fetchImpl: lab.fetchImpl })({ changes }, {});
   const set = values => [{ field: 'race', op: 'set', values }];
   const ambiguous = await run(set(['an']));
-  assert.match(ambiguous.summary, /could mean more than one/);
-  assert.match(ambiguous.summary, /asian/);
-  assert.equal(ambiguous.plot, undefined);
-  const unknown = await run(set(['martian']));
-  assert.match(unknown.summary, /Available values: white/);
-  assert.equal(unknown.plot, undefined);
-  const empty = await run(set(['asian']), virtualLab({ counts: [1000, 0] }));
-  assert.match(empty.summary, /would leave no cases/);
-  assert.equal(empty.plot, undefined);
-  assert.match((await run([{ field: 'age', op: 'remove' }])).summary, /number range/);
-  await assert.rejects(run([]), /changes must list/);
-  await assert.rejects(run([{ field: 'race', op: 'set', values: [] }]), /changes must list/);
+  assert.equal(ambiguous.status, 'ambiguous');
+  assert.ok(ambiguous.options.includes('asian'));
+  assert.equal(ambiguous.field, RACE);
+  assert.equal((await run(set(['martian']))).status, 'unknown_value');
+  assert.equal((await run(set(['asian']), virtualLab({ counts: [1000, 0] }))).status, 'would_be_empty');
+  assert.equal((await run([{ field: 'age', op: 'remove' }])).status, 'unsupported_field');
+  assert.equal((await run([{ field: 'zzzzzz', op: 'remove' }])).status, 'unknown_field');
+  assert.equal((await run([])).status, 'error');
+  assert.equal((await updateCohort(virtualLab())({ changes: [{ field: 'race', op: 'remove' }] }, { cohortFilter: { or: [] } })).status, 'error');
 });
 
 test('show_lollipop reports samples, variants and the most frequent, within the cohort', async () => {
@@ -109,27 +104,89 @@ test('show_lollipop reports samples, variants and the most frequent, within the 
     { mname: 'p.G12V', occurrence: 27 }, { mname: 'p.G12D', occurrence: 23 }, { mname: 'p.X1' }] };
   const lab = virtualLab({ counts: [334], track });
   const result = await showLollipop({ fetchImpl: lab.fetchImpl })({ gene: ' kras ' }, { cohortFilter: filter });
-  assert.match(result.summary, /148 samples in this synthetic cohort of 334 cases have a KRAS mutation, across 5 variants/);
+  assert.equal(result.status, 'ok');
+  assert.match(result.summary, /148 samples in this cohort of 334 cases have a KRAS mutation, across 5 variants/);
   assert.match(result.summary, /Most frequent: p\.Q61H \(38 samples\), p\.G12V \(27 samples\), p\.G12D \(23 samples\)/);
-  assert.equal(result.plot.type, 'lollipop');
-  // Chat treats plot.cohort as a saveable cohort, so this result must not set it.
-  assert.equal(result.plot.cohort, undefined);
-  assert.equal(result.plot.selectedCohort.caseCount, 334);
-  assert.deepEqual(result.plot.filter, filter);
+  assert.deepEqual(result.plot, { type: 'lollipop', gene: 'KRAS' });
+  assert.equal(result.cohort.caseCount, 334);
   assert.deepEqual(lab.calls.find(call => call.path.endsWith('/mds3')).body.filter0, filter);
 });
 
 test('show_lollipop treats a gene with no cohort mutations as a result, including a missing total', async () => {
   const lab = virtualLab({ counts: [334], track: { skewer: [] } });
   const result = await showLollipop({ fetchImpl: lab.fetchImpl })({ gene: 'KRAS' }, {});
-  assert.match(result.summary, /0 of 334 synthetic cases/);
+  assert.equal(result.status, 'none_in_cohort');
+  assert.match(result.summary, /0 of 334 cases/);
   assert.equal(result.plot, undefined);
 });
 
 test('show_lollipop explains unknown genes and rejects malformed data', async () => {
   const run = (gene, lab) => showLollipop({ fetchImpl: lab.fetchImpl })({ gene }, {});
-  assert.match((await run('BRCA1', virtualLab({ gene: null }))).summary, /isn't in this dataset.*KRAS, NRAS/);
-  assert.match((await run('not a gene!', virtualLab({ gene: null }))).summary, /doesn't look like a gene/);
-  await assert.rejects(run('', virtualLab()), /gene must be/);
+  const missing = await run('BRCA1', virtualLab({ gene: null }));
+  assert.equal(missing.status, 'no_data_for_gene');
+  assert.deepEqual(missing.coveredGenes, ['KRAS', 'NRAS']);
+  assert.equal((await run('not a gene!', virtualLab({ gene: null }))).status, 'unknown_gene');
+  assert.equal((await run('', virtualLab())).status, 'error');
   await assert.rejects(run('KRAS', virtualLab({ counts: [1], track: { sampleTotalNumber: 3, skewer: [] } })), /lollipop data/);
+});
+
+const survivalReply = {
+  keys: ['seriesId', 'time', 'survival', 'nevent', 'ncensor', 'nrisk'],
+  case: [['High risk', 1, 0.8, 2, 1, 3], ['High risk', 2, 0.4, 1, 0, 1], ['Standard risk', 1, 0.9, 1, 3, 4]],
+  tests: { '': [{ series1: 'High risk', series2: 'Standard risk', pvalue: 0 }] },
+};
+
+function survivalLab(reply = survivalReply) {
+  const calls = [];
+  const fetchImpl = async (path, options = {}) => {
+    calls.push({ path, body: options.body && JSON.parse(options.body) });
+    if (path.includes('termdb/config')) return respond({ termdbConfig: { loneTermByType: { '': { survival: { id: 'overall_survival', unit: 'years' } } } } });
+    if (path.includes('termdb/termchildren')) return respond({ lst: [{ id: 'cgs_risk_category' }] });
+    if (path.includes('termdb/survival')) return respond(reply);
+    return respond({ data: { Case__aggregation: { case: { _totalCount: 7 } } } });
+  };
+  return { calls, execute: showSurvival({ fetchImpl }) };
+}
+
+test('show_survival summarizes a comparison and says what the chart should draw', async () => {
+  const { execute, calls } = survivalLab();
+  const result = await execute({ compareBy: 'CGS risk' }, {});
+  assert.equal(result.status, 'ok');
+  assert.match(result.summary, /^7 cases, overall survival, compared by CGS risk\. High risk: 3 cases, 3 deaths, 1 censored, median 2\.00 years\./);
+  assert.match(result.summary, /Log-rank P-value shows 0 on the chart/);
+  assert.deepEqual(result.plot, { type: 'survival', term: 'overall_survival', compareBy: 'cgs_risk_category' });
+  assert.deepEqual(result.groups, ['High risk', 'Standard risk']);
+  assert.equal(result.comparedBy, 'CGS risk');
+  assert.deepEqual(calls.find(call => call.path.includes('survival/') || call.path.includes('termdb/survival')).body.filter0, { and: [] });
+});
+
+test('show_survival handles one curve, one group, unknown comparisons and bad replies', async () => {
+  const single = await survivalLab().execute({}, {});
+  assert.deepEqual(single.plot, { type: 'survival', term: 'overall_survival' });
+  const oneGroup = { ...survivalReply, case: survivalReply.case.slice(0, 2) };
+  assert.equal((await survivalLab(oneGroup).execute({ compareBy: 'risk' }, {})).status, 'one_group');
+  const unknown = await survivalLab().execute({ compareBy: 'height' }, {});
+  assert.equal(unknown.status, 'unsupported_comparison');
+  assert.ok(unknown.available.includes('Race'));
+  await assert.rejects(survivalLab({ error: 'x' }).execute({}, {}), /rejected/);
+  assert.equal((await survivalLab({ keys: [], case: [] }).execute({}, {})).status, 'error');
+  assert.equal((await survivalLab({ ...survivalReply, case: [] }).execute({}, {})).status, 'no_cases');
+});
+
+test('show_oncomatrix ranks genes, counts samples and limits to maxGenes', async () => {
+  const fetchImpl = async (path, options) => {
+    const body = JSON.parse(options.body);
+    if (path.includes('topMutatedGenes')) return respond({ genes: [{ gene: 'KRAS', mutationStat: [{ count: 5 }] }, { gene: 'NRAS', mutationStat: [{ count: 3 }] }] });
+    if (path.includes('genelookup')) return respond({ gmlst: [{ name: body.input, chr: 'chr1', start: 1, stop: 2 }] });
+    if (path.includes('mds3')) return respond({ variant2samples: { samples: [{ sample_id: 'a' }, { sample_id: body.rglst[0].chr }] } });
+    return respond({ data: { Case__aggregation: { case: { _totalCount: 10 } } } });
+  };
+  const execute = showOncomatrix({ fetchImpl });
+  const result = await execute({ maxGenes: 1 }, {});
+  assert.equal(result.status, 'ok');
+  assert.equal(result.summary, '10 cases, 2 samples with a mutation in these genes. KRAS (5 samples) are the most frequently mutated.');
+  assert.deepEqual(result.genes, [{ gene: 'KRAS', count: 5 }]);
+  assert.deepEqual(result.plot, { type: 'oncomatrix', maxGenes: 1 });
+  assert.equal((await execute({ maxGenes: 0 }, {})).status, 'error');
+  assert.deepEqual((await execute({}, {})).plot, { type: 'oncomatrix' });
 });

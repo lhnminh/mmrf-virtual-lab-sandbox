@@ -157,7 +157,8 @@ The new resources go in two files, one per owner: `terraform/agentcore-runtime.t
 5. Push the fork, update its commit in `sources.json`, and redeploy.
 
 Tools today: `correlation_plot` (survival), `top_mutated_genes`,
-`differential_expression`, `update_cohort` and `show_lollipop`. When
+`differential_expression`, `update_cohort`, `show_lollipop`, `show_survival`,
+`show_oncomatrix` and `check_virtual_lab_health`. When
 `KG_GATEWAY_URL` is set, the agent also has the knowledge graph tools.
 
 ## To check before building the AWS parts

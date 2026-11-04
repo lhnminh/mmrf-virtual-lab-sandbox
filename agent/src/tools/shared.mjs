@@ -11,6 +11,17 @@ export async function postJson(fetchImpl, path, body) {
   return result;
 }
 
+export async function getJson(fetchImpl, path) {
+  const response = await fetchImpl(path, { signal: AbortSignal.timeout(60000) });
+  if (!response.ok) throw new Error(`Virtual Lab returned HTTP ${response.status} for ${path.split('?')[0]}`);
+  return response.json();
+}
+
+// Only status "error" is a failed step; other statuses are results to report.
+export const ok = (summary, fields = {}) => ({ status: 'ok', summary, ...fields });
+export const outcome = (status, summary, fields = {}) => ({ status, summary, ...fields });
+export const failure = (step, summary) => ({ status: 'error', summary, step });
+
 export function combineFilters(first, second) {
   return first ? { and: [first, second] } : second;
 }

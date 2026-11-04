@@ -1,4 +1,4 @@
-import { createWrappedTool } from '../shared.mjs';
+import { createWrappedTool, failure, ok, outcome } from '../shared.mjs';
 import { caseCount, proteinPaint } from '../virtual-lab.mjs';
 import { cohortLabel } from '../update-cohort/filter.mjs';
 
@@ -17,7 +17,7 @@ export const spec = Object.freeze({
     additionalProperties: false,
   },
 });
-export const promptGuidance = 'For a lollipop plot, or where a gene\'s mutations fall on the protein, call show_lollipop. An Open button under your answer shows the plot, so give the numbers and mention the button.';
+export const promptGuidance = 'For a lollipop plot, or where a gene\'s mutations fall on the protein, call show_lollipop.';
 
 function region(gene) {
   if (!gene.chr || !Number.isFinite(gene.start) || !Number.isFinite(gene.stop)) throw new Error('The gene has no genomic region');
@@ -44,25 +44,28 @@ async function coveredGenes(fetchImpl) {
 export function createExecutor({ fetchImpl }) {
   return async ({ gene: requestedGene } = {}, { cohortFilter = null } = {}) => {
     const requested = typeof requestedGene === 'string' ? requestedGene.trim() : '';
-    if (!requested) throw new Error('gene must be the name of a gene, such as KRAS');
+    if (!requested) return failure('invalid_input', 'gene must be the name of a gene, such as KRAS.');
     const [gene] = (await proteinPaint(fetchImpl, 'genelookup', { input: requested, deep: 1 })).gmlst ?? [];
     if (!gene) {
-      if (!GENE_SHAPED.test(requested)) return { summary: `'${requested}' doesn't look like a gene symbol. Please check the name.` };
-      const covered = await coveredGenes(fetchImpl);
-      return { summary: `${requested} isn't in this dataset. Genes with mutation data here: ${covered.join(', ')}.` };
+      if (!GENE_SHAPED.test(requested)) {
+        return outcome('unknown_gene', `'${requested}' doesn't look like a gene symbol. Please check the name.`);
+      }
+      const coveredGenes_ = await coveredGenes(fetchImpl);
+      return outcome('no_data_for_gene', `${requested} isn't in this dataset. Genes with mutation data here: ${coveredGenes_.join(', ')}.`,
+        { coveredGenes: coveredGenes_ });
     }
-    if (!gene.name) throw new Error('The gene lookup had no name');
+    if (!gene.name) return failure('unhealthy', 'The gene lookup had no name.');
     const cases = await caseCount(fetchImpl, cohortFilter);
     const { samples, variants } = await track(fetchImpl, gene, cohortFilter);
-    if (samples === 0) return { summary: `0 of ${cases} synthetic cases in this cohort have a ${gene.name} mutation.` };
+    const cohort = { label: cohortLabel(cohortFilter), caseCount: cases };
+    if (samples === 0) {
+      return outcome('none_in_cohort', `0 of ${cases} cases in this cohort have a ${gene.name} mutation.`, { gene: gene.name, cohort });
+    }
     const topVariants = [...variants].sort((a, b) => (b.occurrence ?? 0) - (a.occurrence ?? 0)).slice(0, TOP_VARIANTS)
       .map(item => ({ change: item.mname, count: item.occurrence ?? 0 }));
     const listing = topVariants.map(item => `${item.change} (${item.count} samples)`).join(', ');
-    return {
-      summary: `${samples} samples in this synthetic cohort of ${cases} cases have a ${gene.name} mutation, across ${variants.length} variants. Most frequent: ${listing}.`,
-      plot: { type: 'lollipop', gene: gene.name, filter: cohortFilter, sampleCount: samples, variantCount: variants.length, topVariants,
-        selectedCohort: { label: cohortLabel(cohortFilter), caseCount: cases } },
-    };
+    return ok(`${samples} samples in this cohort of ${cases} cases have a ${gene.name} mutation, across ${variants.length} variants. Most frequent: ${listing}.`,
+      { gene: gene.name, sampleCount: samples, variantCount: variants.length, topVariants, cohort, plot: { type: 'lollipop', gene: gene.name } });
   };
 }
 

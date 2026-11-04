@@ -1,4 +1,4 @@
-import { postJson } from './shared.mjs';
+import { getJson, postJson } from './shared.mjs';
 
 const GENOME = { genome: 'hg38', dslabel: 'MMRF' };
 const FIELD_PART = /^[A-Za-z_][A-Za-z0-9_]*$/;
@@ -19,16 +19,6 @@ export async function caseCount(fetchImpl, filter) {
   return count;
 }
 
-export async function caseIds(fetchImpl, filter) {
-  const reply = await postJson(fetchImpl, '/guppy/graphql', {
-    query: 'query($filter:JSON){CaseCentric_case_centric(first:1000,filter:$filter){case_id}}',
-    variables: { filter },
-  });
-  const cases = reply?.data?.CaseCentric_case_centric;
-  if (!Array.isArray(cases)) throw new Error('Cohort query returned no case list');
-  return cases.map(item => item.case_id);
-}
-
 export async function fieldValues(fetchImpl, field) {
   const parts = field.split('.');
   if (!parts.every(part => FIELD_PART.test(part))) throw new Error(`Invalid field name: ${field}`);
@@ -36,6 +26,12 @@ export async function fieldValues(fetchImpl, field) {
   const node = parts.reduce((value, part) => value?.[part], await aggregate(fetchImpl, selection, null));
   if (!Array.isArray(node?.histogram)) throw new Error('The field values were missing');
   return node.histogram.map(row => String(row.key));
+}
+
+export async function proteinPaintConfig(fetchImpl, route, query) {
+  const params = Object.entries({ ...GENOME, ...query }).map(([name, value]) =>
+    [name, typeof value === 'string' ? value : JSON.stringify(value)]);
+  return getJson(fetchImpl, `/protein-paint/${route}?${new URLSearchParams(params)}`);
 }
 
 export async function proteinPaint(fetchImpl, route, body, filter = null) {
