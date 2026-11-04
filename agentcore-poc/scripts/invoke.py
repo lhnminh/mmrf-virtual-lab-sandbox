@@ -13,15 +13,24 @@ import uuid
 from pathlib import Path
 
 TERRAFORM_DIR = Path(__file__).resolve().parents[1] / "terraform"
+COHORT_KEYS = ("filter", "label", "caseCount", "revision", "changedOutsideChat")
 
 
-def build_run_input(prompt: str, thread_id: str, history: list[dict]) -> dict:
+def load_cohort(path: str) -> dict:
+    """The cohort a browser would send as state.cohort. The filter key may be null, for all cases."""
+    cohort = json.loads(Path(path).read_text())
+    if not isinstance(cohort, dict) or "filter" not in cohort:
+        raise ValueError("The cohort file needs a filter key.")
+    return {key: cohort[key] for key in COHORT_KEYS if key in cohort}
+
+
+def build_run_input(prompt: str, thread_id: str, history: list[dict], cohort: dict | None = None) -> dict:
     messages = [{"id": str(uuid.uuid4()), **turn} for turn in history]
     messages.append({"id": str(uuid.uuid4()), "role": "user", "content": prompt})
     return {
         "threadId": thread_id,
         "runId": str(uuid.uuid4()),
-        "state": {},
+        "state": {"cohort": cohort} if cohort is not None else {},
         "messages": messages,
         "tools": [],
         "context": [],
@@ -50,7 +59,10 @@ def main() -> None:
     parser.add_argument("prompt")
     parser.add_argument("--thread", default=str(uuid.uuid4()))
     parser.add_argument("--save", help="write the raw SSE stream to this path")
+    parser.add_argument("--cohort-file", help="JSON to send as state.cohort: filter, label, caseCount, "
+                                              "revision, changedOutsideChat")
     args = parser.parse_args()
+    cohort = load_cohort(args.cohort_file) if args.cohort_file else None
 
     import boto3  # Imported here so the helpers above need no AWS packages.
 
@@ -60,7 +72,7 @@ def main() -> None:
     response = session.client("bedrock-agentcore").invoke_agent_runtime(
         agentRuntimeArn=arn,
         runtimeSessionId=session_id(args.thread),
-        payload=json.dumps(build_run_input(args.prompt, args.thread, [])).encode(),
+        payload=json.dumps(build_run_input(args.prompt, args.thread, [], cohort)).encode(),
         contentType="application/json",
         accept="text/event-stream",
     )

@@ -1,0 +1,130 @@
+data: {"type": "RUN_STARTED", "threadId": "task8-toolfail", "runId": "6eaefdc4-b38b-4ff6-be59-ca5e41ce5c63", "protocolVersion": "1.0"}
+
+data: {"type": "STATE_SNAPSHOT", "snapshot": {"cohort": {"filter": {"bogus": {}}, "label": "Test cohort", "caseCount": 100, "revision": 1, "changedOutsideChat": false}}}
+
+data: {"type": "MESSAGES_SNAPSHOT", "messages": [{"id": "bcf470a2-88ef-43e0-9985-13f273f91a06", "role": "user", "content": "What are the top mutated genes?"}]}
+
+data: {"type": "REASONING_START", "messageId": "0e478466-50b2-41c1-be08-319e6bbb04e9"}
+
+data: {"type": "REASONING_MESSAGE_START", "messageId": "0e478466-50b2-41c1-be08-319e6bbb04e9", "role": "reasoning"}
+
+data: {"type": "REASONING_MESSAGE_END", "messageId": "0e478466-50b2-41c1-be08-319e6bbb04e9"}
+
+data: {"type": "REASONING_END", "messageId": "0e478466-50b2-41c1-be08-319e6bbb04e9"}
+
+data: {"type": "TEXT_MESSAGE_START", "messageId": "d257111c-acf0-4fda-8131-719309c707d3", "role": "assistant"}
+
+data: {"type": "TEXT_MESSAGE_CONTENT", "messageId": "d257111c-acf0-4fda-8131-719309c707d3", "delta": "Plan: show"}
+
+data: {"type": "TEXT_MESSAGE_CONTENT", "messageId": "d257111c-acf0-4fda-8131-719309c707d3", "delta": " the"}
+
+data: {"type": "TEXT_MESSAGE_CONTENT", "messageId": "d257111c-acf0-4fda-8131-719309c707d3", "delta": " O"}
+
+data: {"type": "TEXT_MESSAGE_CONTENT", "messageId": "d257111c-acf0-4fda-8131-719309c707d3", "delta": "ncoMatrix for the"}
+
+data: {"type": "TEXT_MESSAGE_CONTENT", "messageId": "d257111c-acf0-4fda-8131-719309c707d3", "delta": " current"}
+
+data: {"type": "TEXT_MESSAGE_CONTENT", "messageId": "d257111c-acf0-4fda-8131-719309c707d3", "delta": " Test cohort to find the most"}
+
+data: {"type": "TEXT_MESSAGE_CONTENT", "messageId": "d257111c-acf0-4fda-8131-719309c707d3", "delta": " frequently mutated genes"}
+
+data: {"type": "TEXT_MESSAGE_CONTENT", "messageId": "d257111c-acf0-4fda-8131-719309c707d3", "delta": "."}
+
+data: {"type": "TEXT_MESSAGE_END", "messageId": "d257111c-acf0-4fda-8131-719309c707d3"}
+
+data: {"type": "MESSAGES_SNAPSHOT", "messages": [{"id": "bcf470a2-88ef-43e0-9985-13f273f91a06", "role": "user", "content": "What are the top mutated genes?"}, {"id": "d257111c-acf0-4fda-8131-719309c707d3", "role": "assistant", "content": "Plan: show the OncoMatrix for the current Test cohort to find the most frequently mutated genes."}]}
+
+data: {"type": "TOOL_CALL_START", "toolCallId": "tooluse_DqdoiF6ajWET36FYlxjG5F", "toolCallName": "virtual-lab___show_oncomatrix", "parentMessageId": "4b55db84-538a-4765-9e05-0de6dadc105c"}
+
+data: {"type": "TOOL_CALL_END", "toolCallId": "tooluse_DqdoiF6ajWET36FYlxjG5F"}
+
+data: {"type": "MESSAGES_SNAPSHOT", "messages": [{"id": "bcf470a2-88ef-43e0-9985-13f273f91a06", "role": "user", "content": "What are the top mutated genes?"}, {"id": "d257111c-acf0-4fda-8131-719309c707d3", "role": "assistant", "content": "Plan: show the OncoMatrix for the current Test cohort to find the most frequently mutated genes."}, {"id": "4b55db84-538a-4765-9e05-0de6dadc105c", "role": "assistant", "content": "", "toolCalls": [{"id": "tooluse_DqdoiF6ajWET36FYlxjG5F", "type": "function", "function": {"name": "virtual-lab___show_oncomatrix", "arguments": "{}"}}]}]}
+
+data: {"type": "RAW", "event": {"event": {"metadata": {"usage": {"inputTokens": 1953, "outputTokens": 112, "totalTokens": 2065}, "metrics": {"latencyMs": 1386}}}}, "source": "strands"}
+
+data: {"type": "TOOL_CALL_RESULT", "messageId": "8e028c32-dddd-44f7-af52-c279aa39b180", "toolCallId": "tooluse_DqdoiF6ajWET36FYlxjG5F", "content": "{\"status\":\"error\",\"summary\":\"The Virtual Lab data query failed.\",\"step\":\"unhealthy\"}"}
+
+data: {"type": "MESSAGES_SNAPSHOT", "messages": [{"id": "bcf470a2-88ef-43e0-9985-13f273f91a06", "role": "user", "content": "What are the top mutated genes?"}, {"id": "d257111c-acf0-4fda-8131-719309c707d3", "role": "assistant", "content": "Plan: show the OncoMatrix for the current Test cohort to find the most frequently mutated genes."}, {"id": "4b55db84-538a-4765-9e05-0de6dadc105c", "role": "assistant", "content": "", "toolCalls": [{"id": "tooluse_DqdoiF6ajWET36FYlxjG5F", "type": "function", "function": {"name": "virtual-lab___show_oncomatrix", "arguments": "{}"}}]}, {"id": "8e028c32-dddd-44f7-af52-c279aa39b180", "role": "tool", "content": "{\"status\":\"error\",\"summary\":\"The Virtual Lab data query failed.\",\"step\":\"unhealthy\"}", "toolCallId": "tooluse_DqdoiF6ajWET36FYlxjG5F"}]}
+
+data: {"type": "REASONING_START", "messageId": "a3804484-bce8-40a0-8707-56ed248d42e5"}
+
+data: {"type": "REASONING_MESSAGE_START", "messageId": "a3804484-bce8-40a0-8707-56ed248d42e5", "role": "reasoning"}
+
+data: {"type": "REASONING_MESSAGE_END", "messageId": "a3804484-bce8-40a0-8707-56ed248d42e5"}
+
+data: {"type": "REASONING_END", "messageId": "a3804484-bce8-40a0-8707-56ed248d42e5"}
+
+data: {"type": "TEXT_MESSAGE_START", "messageId": "3256eacd-5d88-483a-850a-b21dcbb6eb0a", "role": "assistant"}
+
+data: {"type": "TEXT_MESSAGE_CONTENT", "messageId": "3256eacd-5d88-483a-850a-b21dcbb6eb0a", "delta": "**"}
+
+data: {"type": "TEXT_MESSAGE_CONTENT", "messageId": "3256eacd-5d88-483a-850a-b21dcbb6eb0a", "delta": "Observed**"}
+
+data: {"type": "TEXT_MESSAGE_CONTENT", "messageId": "3256eacd-5d88-483a-850a-b21dcbb6eb0a", "delta": "\nThe"}
+
+data: {"type": "TEXT_MESSAGE_CONTENT", "messageId": "3256eacd-5d88-483a-850a-b21dcbb6eb0a", "delta": " OncoMatrix request"}
+
+data: {"type": "TEXT_MESSAGE_CONTENT", "messageId": "3256eacd-5d88-483a-850a-b21dcbb6eb0a", "delta": " failed with an"}
+
+data: {"type": "TEXT_MESSAGE_CONTENT", "messageId": "3256eacd-5d88-483a-850a-b21dcbb6eb0a", "delta": " error "}
+
+data: {"type": "TEXT_MESSAGE_CONTENT", "messageId": "3256eacd-5d88-483a-850a-b21dcbb6eb0a", "delta": "(\"The Virtual L"}
+
+data: {"type": "TEXT_MESSAGE_CONTENT", "messageId": "3256eacd-5d88-483a-850a-b21dcbb6eb0a", "delta": "ab data query failed.\""}
+
+data: {"type": "TEXT_MESSAGE_CONTENT", "messageId": "3256eacd-5d88-483a-850a-b21dcbb6eb0a", "delta": "), so I can"}
+
+data: {"type": "TEXT_MESSAGE_CONTENT", "messageId": "3256eacd-5d88-483a-850a-b21dcbb6eb0a", "delta": "'t report"}
+
+data: {"type": "TEXT_MESSAGE_CONTENT", "messageId": "3256eacd-5d88-483a-850a-b21dcbb6eb0a", "delta": " which genes are most frequently"}
+
+data: {"type": "TEXT_MESSAGE_CONTENT", "messageId": "3256eacd-5d88-483a-850a-b21dcbb6eb0a", "delta": " mutated in"}
+
+data: {"type": "TEXT_MESSAGE_CONTENT", "messageId": "3256eacd-5d88-483a-850a-b21dcbb6eb0a", "delta": " the Test cohort. No"}
+
+data: {"type": "TEXT_MESSAGE_CONTENT", "messageId": "3256eacd-5d88-483a-850a-b21dcbb6eb0a", "delta": " ch"}
+
+data: {"type": "TEXT_MESSAGE_CONTENT", "messageId": "3256eacd-5d88-483a-850a-b21dcbb6eb0a", "delta": "art was produ"}
+
+data: {"type": "TEXT_MESSAGE_CONTENT", "messageId": "3256eacd-5d88-483a-850a-b21dcbb6eb0a", "delta": "ced.\n\n**Limits**"}
+
+data: {"type": "TEXT_MESSAGE_CONTENT", "messageId": "3256eacd-5d88-483a-850a-b21dcbb6eb0a", "delta": "\nThe data is synthetic"}
+
+data: {"type": "TEXT_MESSAGE_CONTENT", "messageId": "3256eacd-5d88-483a-850a-b21dcbb6eb0a", "delta": " and has no clinical mea"}
+
+data: {"type": "TEXT_MESSAGE_CONTENT", "messageId": "3256eacd-5d88-483a-850a-b21dcbb6eb0a", "delta": "ning. Numbers are for"}
+
+data: {"type": "TEXT_MESSAGE_CONTENT", "messageId": "3256eacd-5d88-483a-850a-b21dcbb6eb0a", "delta": " the default view and don't refl"}
+
+data: {"type": "TEXT_MESSAGE_CONTENT", "messageId": "3256eacd-5d88-483a-850a-b21dcbb6eb0a", "delta": "ect changes made in the chart"}
+
+data: {"type": "TEXT_MESSAGE_CONTENT", "messageId": "3256eacd-5d88-483a-850a-b21dcbb6eb0a", "delta": ". The"}
+
+data: {"type": "TEXT_MESSAGE_CONTENT", "messageId": "3256eacd-5d88-483a-850a-b21dcbb6eb0a", "delta": " fail"}
+
+data: {"type": "TEXT_MESSAGE_CONTENT", "messageId": "3256eacd-5d88-483a-850a-b21dcbb6eb0a", "delta": "ure means"}
+
+data: {"type": "TEXT_MESSAGE_CONTENT", "messageId": "3256eacd-5d88-483a-850a-b21dcbb6eb0a", "delta": " I have no g"}
+
+data: {"type": "TEXT_MESSAGE_CONTENT", "messageId": "3256eacd-5d88-483a-850a-b21dcbb6eb0a", "delta": "ene results to"}
+
+data: {"type": "TEXT_MESSAGE_CONTENT", "messageId": "3256eacd-5d88-483a-850a-b21dcbb6eb0a", "delta": " report for this cohort."}
+
+data: {"type": "TEXT_MESSAGE_CONTENT", "messageId": "3256eacd-5d88-483a-850a-b21dcbb6eb0a", "delta": " Retrying the request or"}
+
+data: {"type": "TEXT_MESSAGE_CONTENT", "messageId": "3256eacd-5d88-483a-850a-b21dcbb6eb0a", "delta": " checking the"}
+
+data: {"type": "TEXT_MESSAGE_CONTENT", "messageId": "3256eacd-5d88-483a-850a-b21dcbb6eb0a", "delta": " Virtual Lab's health"}
+
+data: {"type": "TEXT_MESSAGE_CONTENT", "messageId": "3256eacd-5d88-483a-850a-b21dcbb6eb0a", "delta": " may help."}
+
+data: {"type": "RAW", "event": {"event": {"metadata": {"usage": {"inputTokens": 2107, "outputTokens": 371, "totalTokens": 2478}, "metrics": {"latencyMs": 2403}}}}, "source": "strands"}
+
+data: {"type": "TEXT_MESSAGE_END", "messageId": "3256eacd-5d88-483a-850a-b21dcbb6eb0a"}
+
+data: {"type": "MESSAGES_SNAPSHOT", "messages": [{"id": "bcf470a2-88ef-43e0-9985-13f273f91a06", "role": "user", "content": "What are the top mutated genes?"}, {"id": "d257111c-acf0-4fda-8131-719309c707d3", "role": "assistant", "content": "Plan: show the OncoMatrix for the current Test cohort to find the most frequently mutated genes."}, {"id": "4b55db84-538a-4765-9e05-0de6dadc105c", "role": "assistant", "content": "", "toolCalls": [{"id": "tooluse_DqdoiF6ajWET36FYlxjG5F", "type": "function", "function": {"name": "virtual-lab___show_oncomatrix", "arguments": "{}"}}]}, {"id": "8e028c32-dddd-44f7-af52-c279aa39b180", "role": "tool", "content": "{\"status\":\"error\",\"summary\":\"The Virtual Lab data query failed.\",\"step\":\"unhealthy\"}", "toolCallId": "tooluse_DqdoiF6ajWET36FYlxjG5F"}, {"id": "3256eacd-5d88-483a-850a-b21dcbb6eb0a", "role": "assistant", "content": "**Observed**\nThe OncoMatrix request failed with an error (\"The Virtual Lab data query failed.\"), so I can't report which genes are most frequently mutated in the Test cohort. No chart was produced.\n\n**Limits**\nThe data is synthetic and has no clinical meaning. Numbers are for the default view and don't reflect changes made in the chart. The failure means I have no gene results to report for this cohort. Retrying the request or checking the Virtual Lab's health may help."}]}
+
+data: {"type": "STATE_SNAPSHOT", "snapshot": {"cohort": {"filter": {"bogus": {}}, "label": "Test cohort", "caseCount": 100, "revision": 1, "changedOutsideChat": false}}}
+
+data: {"type": "RUN_FINISHED", "threadId": "task8-toolfail", "runId": "6eaefdc4-b38b-4ff6-be59-ca5e41ce5c63", "outcome": {"type": "success"}, "usage": [{"provider": "bedrock", "model": "us.anthropic.claude-haiku-5-5", "inputTokens": 4060, "outputTokens": 483, "totalTokens": 4543}]}
+

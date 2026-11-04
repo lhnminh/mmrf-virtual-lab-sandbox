@@ -25,6 +25,8 @@ uv run python ../scripts/set_access_secret.py --access-file PATH/TO/generated/aw
 uv run python ../scripts/invoke.py "Is the Virtual Lab healthy?"
 ```
 
+To send a cohort as a browser would, add `--cohort-file PATH`. The file is JSON with `filter`, `label`, `caseCount`, `revision` and `changedOutsideChat`, and goes in `state.cohort`.
+
 Until the secret is filled, the tool returns `config_error`. The login is cached per Lambda instance, so after changing it, force a new instance by updating the function's configuration.
 
 ## Connect Chat
@@ -48,7 +50,7 @@ The dev route answers only in development and only to this machine, because it s
 Tools are Python.
 
 1. Add a function to `lambda/handler.py` and an entry to `TOOLS`.
-2. Add its schema to `lambda/tools.json`. Only flat input properties are supported.
+2. Add its schema to `lambda/tools.json`. Nested input properties are supported, because Gateway reads the schema from S3.
 3. Run `terraform apply`.
 
 The agent finds new tools through Gateway, so its code doesn't change.
@@ -88,5 +90,28 @@ Run on 2026-11-03 against the deployed agent, with the real login loaded.
 | Wrong password in Chat | The agent reports the login was refused and doesn't present the earlier result as current |
 | No agent reachable from Chat | Shows `HTTP 502: {"error":"The agent is unavailable"}`; the composer still works |
 | Browser traffic | Same origin only; no AWS keys, signatures, ARNs or Basic credentials |
+
+### Cohort and Lollipop tools
+
+Run on 2026-11-03 against the deployed agent. Streams are in `tests/fixtures/`. Gene names and counts are synthetic.
+
+| Check | Result |
+| --- | --- |
+| Apply | 2 added, 4 changed in place, 1 replaced (`aws_s3_object.agent_code`). Runtime and Gateway kept |
+| Gateway `tools/list` | 4 tools, with `changes` nested in the S3 schema. None offers a cohort |
+| `cohortFilter` on a tool that declares properties | Delivered: KRAS goes from 480 samples of 1,000 cases to 148 of 334 with a race filter |
+| `cohortFilter: null` | All cases, the same as leaving it out. The tool treats both alike, so this doesn't show whether Gateway delivers or drops it |
+| Gateway validation errors with a marker in `cohortFilter` | Name only the declared field. The marker isn't in the text |
+| Journey: "What's mutated in Black patients?" | `update_cohort`, `show_oncomatrix`, `RUN_FINISHED`, and a `STATE_SNAPSHOT` at revision 2 |
+| Filter in the stream | No filter, `cohortFilter` or case ID outside `STATE_SNAPSHOT`, including `TOOL_CALL_*`, `MESSAGES_SNAPSHOT`, `TEXT_MESSAGE_*`, `RAW` and `REASONING_*` |
+| Runtime and Lambda logs after the apply | None of those strings. Bedrock model invocation logging isn't configured |
+| Case ID cohort of 200 | Same absence, with the IDs only in `STATE_SNAPSHOT`. Label "Selected cases" and 200 cases. Not saved as a fixture |
+| `changedOutsideChat` | The answer starts "Now using: Selected cases (200 cases)" |
+| Lollipop follow-up in the same thread | Uses the new cohort without changing it |
+| `ambiguous`, `unknown_field`, `no_data_for_gene` | Each reported as a result. The cohort stays unchanged |
+| Tool failure | Reported as a failure, with no guessed result. Recorded by sending a malformed `state.cohort` filter, so `tool-failure.sse` holds that filter in its `STATE_SNAPSHOT` |
+| `check_numbers` | Unsupported numbers in the `ambiguous` answer: its case count from state, and "1" and "2" from a numbered list. The other saved streams have none |
+
+**Known failure:** `none_in_cohort` doesn't work yet. ProteinPaint omits `sampleTotalNumber` when no sample in the cohort has a mutation in the gene, so `show_lollipop` returns `status: error` instead. There's no `none-in-cohort.sse` until this is fixed and deployed.
 
 `terraform destroy` hasn't been run.

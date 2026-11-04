@@ -29,6 +29,45 @@ class RunInput(unittest.TestCase):
         self.assertEqual(invoke.session_id("t"), hashlib.sha256(b"t").hexdigest())
 
 
+class CohortFile(unittest.TestCase):
+    COHORT = {"filter": {"and": [{"in": {"demographic.race": ["black or african american"]}}]},
+              "label": "Race: black or african american", "caseCount": 334,
+              "revision": 2, "changedOutsideChat": False}
+
+    def write(self, value):
+        file = tempfile.NamedTemporaryFile("w", suffix=".json", delete=False)
+        self.addCleanup(pathlib.Path(file.name).unlink)
+        file.write(value)
+        file.close()
+        return file.name
+
+    def test_run_input_has_no_cohort_by_default(self):
+        self.assertEqual(invoke.build_run_input("q", "t", [])["state"], {})
+
+    def test_cohort_goes_in_state_and_nowhere_else(self):
+        run_input = invoke.build_run_input("q", "t", [], self.COHORT)
+        parsed = RunAgentInput.model_validate(run_input)
+        self.assertEqual(parsed.state, {"cohort": self.COHORT})
+        self.assertEqual(parsed.context, [])
+        self.assertEqual(parsed.messages[-1].content, "q")
+
+    def test_load_cohort_reads_the_file(self):
+        self.assertEqual(invoke.load_cohort(self.write(json.dumps(self.COHORT))), self.COHORT)
+
+    def test_load_cohort_keeps_only_the_cohort_fields(self):
+        path = self.write(json.dumps({**self.COHORT, "other": "x"}))
+        self.assertEqual(invoke.load_cohort(path), self.COHORT)
+
+    def test_load_cohort_accepts_a_null_filter(self):
+        path = self.write(json.dumps({"filter": None, "label": "All cases"}))
+        self.assertEqual(invoke.load_cohort(path), {"filter": None, "label": "All cases"})
+
+    def test_load_cohort_requires_a_filter_key(self):
+        for value in ('{"label": "All cases"}', "[]"):
+            with self.subTest(value=value), self.assertRaises(ValueError):
+                invoke.load_cohort(self.write(value))
+
+
 class Sse(unittest.TestCase):
     def test_parse_sse_line(self):
         self.assertEqual(invoke.parse_sse_line('data: {"type":"RUN_STARTED"}'), {"type": "RUN_STARTED"})
