@@ -17,7 +17,9 @@ The last time to start applying before the Nov 4 demo is 15:00, and nothing new 
 
 The Runtime keeps the `:*` trust from the AWS Runtime docs. The Gateway form comes from the AWS Gateway docs.
 
-## Stage 2: `feature/agentcore-module`, after the demo
+## Stage 2: `feature/agentcore-module`
+
+Done on 2026-11-04, before the demo, by the user's decision. The new stack is created alongside the POC, and the POC is destroyed only after the new one is verified.
 
 Move the stack into root `terraform/` as a child module.
 

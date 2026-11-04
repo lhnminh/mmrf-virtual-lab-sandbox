@@ -4,26 +4,23 @@ A Python Strands agent on AgentCore Runtime that speaks AG-UI, with one Python t
 
 Design: [`docs/superpowers/specs/2026-11-03-agentcore-agui-chat-design.md`](../docs/superpowers/specs/2026-11-03-agentcore-agui-chat-design.md) and the [architecture diagram](../docs/superpowers/specs/2026-11-03-agentcore-agui-chat-architecture.drawio.png).
 
-This has its own Terraform root and local state. It creates nothing inside the live Virtual Lab, and these resources bill until destroyed.
+The Terraform is a module in the root stack, `terraform/modules/agentcore`, and stays off unless `enable_agentcore` is true. It needs `enable_https`, because tools call the CloudFront origin. These resources bill until destroyed.
 
 ## Deploy
 
-Needs `uv`, Terraform and the `workshop` AWS profile. Create `terraform/poc.auto.tfvars`, which git ignores:
+Needs `uv`, Terraform and the `workshop` AWS profile. Through the launcher, run `init` with `--enable-agentcore`, then `deploy`: it builds the agent, applies and fills the tools' secret.
 
-```hcl
-sandbox_account_id = "<account-id>"
-sandbox_origin     = "https://<distribution-id>.cloudfront.net"
-```
-
-Then:
+To change only the agent on an existing sandbox, set `"enable_agentcore": true` in both `terraform/sandbox.auto.tfvars.json` and `generated/aws/config.json`. Without the second, the launcher's next run turns it off and destroys the agent. Then:
 
 ```sh
 scripts/build_agent.sh
-(cd terraform && terraform init && AWS_PROFILE=workshop terraform apply)
+(cd ../terraform && AWS_PROFILE=workshop terraform apply)
 cd agent
 uv run python ../scripts/set_access_secret.py --access-file PATH/TO/generated/aws/access.json
 uv run python ../scripts/invoke.py "Is the Virtual Lab healthy?"
 ```
+
+Read every plan. The clones share root state, so applying from a clone without this module destroys the agent.
 
 To send a cohort as a browser would, add `--cohort-file PATH`. The file is JSON with `filter`, `label`, `caseCount`, `revision` and `changedOutsideChat`, and goes in `state.cohort`.
 
@@ -73,18 +70,15 @@ The agent finds new tools through Gateway, so its code doesn't change. Show a to
 python3 -m unittest discover -s tests -p 'test_handler.py'
 (cd agent && uv run python -m unittest test_runs test_main)
 (cd agent && uv run python -m unittest discover -s ../tests -p 'test_scripts.py')
-(cd terraform && terraform fmt -check && terraform validate && terraform test)
+(cd ../terraform && terraform fmt -check -recursive && terraform validate && terraform test)
+(cd ../terraform/modules/agentcore && terraform init -backend=false && terraform test)
 ```
 
 Browser checks use the Chrome DevTools MCP against the deployed agent, after a deploy or when a UI change needs seeing. The steps are in [Acceptance checks in a browser](#acceptance-checks-in-a-browser). There's no automated browser suite.
 
 ## Destroy
 
-```sh
-(cd terraform && AWS_PROFILE=workshop terraform destroy)
-```
-
-Keep `terraform/terraform.tfstate` until this succeeds. The live Virtual Lab isn't affected.
+Set `enable_agentcore` to false and apply from `terraform/`, or run the launcher's `destroy`, which removes the whole sandbox.
 
 ## Live checks
 
@@ -178,4 +172,4 @@ Run on 2026-11-04 through the Chrome DevTools MCP: local Chat, deployed agent (R
 The first apply failed while uploading the agent zip, after deleting the old one, and left the Runtime pointing at a removed object. Re-planning and applying again finished it. The error text wasn't kept.
 
 **Local dev:** after refreshing AWS credentials, restart `next dev`. Until then Chat shows `HTTP 502`, and the log shows a `SyntaxError` for what is a 403 from AWS.
-`terraform destroy` hasn't been run.
+The checks above ran before the stack moved into the root module.
