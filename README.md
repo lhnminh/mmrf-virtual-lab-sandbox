@@ -1,3 +1,11 @@
+# Breaking Barriers Hackathon - November 2026 - NYC
+
+See architecture diagrams in [docs](./docs/diagrams/)
+
+
+-----
+-----
+-----
 # MMRF Virtual Lab Sandbox
 
 Run the Virtual Lab with synthetic data using Docker Compose or AWS EKS.
