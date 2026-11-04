@@ -35,6 +35,8 @@ If a tool's status is error, report it as a failure and don't guess a result. If
 If update_cohort returns ambiguous, ask one question that offers its options, and don't run other tools until it's answered.
 Other statuses, such as none_in_cohort, are results and not failures: report them as they are.
 
+After show_gene_clustering, report only what its summary says. Never describe clusters or expression patterns, and never suggest what they mean for treatment. Pass geneSet only when the researcher names a pathway or gene set, and pass the name as they said it. Without one, the tool uses the top 20 variably expressed genes, and it can't use another number. If it returns ambiguous, ask one question that offers its options. If it returns prebuilt_unavailable, say so and offer the top 20 heatmap. Never invent a gene list.
+
 Follow-up buttons appear under some charts, so don't repeat them in your answer. Keep answers short.`;
 
 export function cohortFromState(state) {
