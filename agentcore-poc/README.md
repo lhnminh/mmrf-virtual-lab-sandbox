@@ -136,7 +136,7 @@ Run on 2026-11-03 through the Chrome DevTools MCP: local Chat, deployed agent. N
 | Check | What the page showed |
 | --- | --- |
 | "What's mutated in Black patients?" | Cohort bar 1,000 to 334. Answer and OncoMatrix agree: KRAS 148, NRAS 113, DIS3 98, BRAF 76, MYC 62, TP53 38 |
-| "Top 3 genes" | The same 3 genes and counts in the answer and matrix. The chart header counts 251 samples with a mutation in those genes, and the answer gives the cohort's 287 |
+| "Top 3 genes" | The same 3 genes and counts in the answer and matrix. The chart header counted 251 samples and the answer 287, because the summary counted all ranked genes. Fixed in code to count the genes shown, pending deploy |
 | Lollipop for KRAS | Answer and chart agree: 148 samples, 14 variants, p.Q61H 38. The sample list wasn't opened |
 | Named and open-ended wording | "Show a Lollipop plot for KRAS" and "Where do KRAS mutations fall on the protein?" reach the same result |
 | Change the cohort, then ask | The answer opens with "Now using" and uses the new cohort. The request's `changedOutsideChat` is true once, then false |
@@ -152,6 +152,8 @@ Run on 2026-11-03 through the Chrome DevTools MCP: local Chat, deployed agent. N
 | More turns in one thread | Earlier turns and charts stay on screen. Chart requests in the server log didn't rise over turns that drew no chart |
 
 The standalone OncoMatrix page wasn't opened for comparison. Chat draws the same component with the same filter.
+
+**Pending deploy:** these fixes from the final review pass unit tests but haven't run on the deployed agent: the Top N sample count, transport failures showing as Failed, whole-word value matching ("I" means Stage I), `unsupported_field` for number-range fields such as age, and "Now using" only on the turn after a change. `journey-oncomatrix.sse` holds the earlier summary wording until it's re-recorded.
 
 **Local dev:** after refreshing AWS credentials, restart `next dev`. Until then Chat shows `HTTP 502`, and the log shows a `SyntaxError` for what is a 403 from AWS.
 `terraform destroy` hasn't been run.
