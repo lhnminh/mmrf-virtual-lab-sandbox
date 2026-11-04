@@ -2,7 +2,7 @@
 
 A Python Strands agent on AgentCore Runtime that speaks AG-UI, with one Python tool behind AgentCore Gateway. The local Chat page on `next dev` streams its answers.
 
-Design: [`docs/superpowers/specs/2026-11-03-agentcore-agui-chat-design.md`](../docs/superpowers/specs/2026-11-03-agentcore-agui-chat-design.md) and the [planned architecture diagram](../docs/superpowers/specs/2026-11-03-agentcore-agui-chat-architecture.drawio.png).
+Design: [`docs/superpowers/specs/2026-11-03-agentcore-agui-chat-design.md`](../docs/superpowers/specs/2026-11-03-agentcore-agui-chat-design.md) and the [architecture diagram](../docs/superpowers/specs/2026-11-03-agentcore-agui-chat-architecture.drawio.png).
 
 This has its own Terraform root and local state. It creates nothing inside the live Virtual Lab, and these resources bill until destroyed.
 
