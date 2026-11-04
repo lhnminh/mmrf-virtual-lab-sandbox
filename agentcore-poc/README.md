@@ -31,17 +31,27 @@ Until the secret is filled, the tool returns `config_error`. The login is cached
 
 ## Connect Chat
 
-In the `mmrf-data-commons` `feature/agui-chat` worktree, add these to `.env.development.local`, which git ignores:
+Charts and tool answers read the same deployed Virtual Lab, so no local stack is needed. In the `mmrf-data-commons` `feature/chat-cohort-tools` branch, add these to `.env.development.local`, which git ignores:
 
 ```sh
 AGENTCORE_RUNTIME_ARN=<terraform output agent_runtime_arn>
 AWS_PROFILE=workshop
-NEXT_PUBLIC_GEN3_API_TARGET=http://localhost:3080
+NEXT_PUBLIC_GEN3_API_TARGET=http://localhost:3090
+PROTEINPAINT_API=http://localhost:3091
 ```
 
-Then run `npm run dev -- -H 127.0.0.1` and open `http://localhost:3000/?app=Chat`. It must be port 3000, because `.env.development` points the app there.
+Start the forwarders, then the dev server:
 
-`next dev` has no sandbox session, so it redirects to Login. With the local stack running, open `http://localhost:3080/sandbox/session` and set its `access_token` as a `credentials_token` cookie for `localhost`. It lasts 30 minutes and only works in development.
+```sh
+SANDBOX_ACCESS_FILE=PATH/TO/access.json node scripts/dev-forward.mjs
+npm run dev -- -H 127.0.0.1
+```
+
+`scripts/dev-forward.mjs` listens on `127.0.0.1` only. Port 3090 forwards to the deployed origin and 3091 to its `/protein-paint`, each adding the Basic login. `SANDBOX_ACCESS_FILE` is JSON with `origin`, `username` and `password`. Keep it outside the repositories.
+
+Open `http://localhost:3000/?app=Chat`. It must be port 3000, because `.env.development` points the app there.
+
+`next dev` has no sandbox session, so it redirects to Login. Open `http://localhost:3090/sandbox/session` and set its `access_token` as a `credentials_token` cookie for `localhost`. It lasts 30 minutes and only works in development.
 
 The dev route answers only in development and only to this machine, because it signs with your AWS credentials. Restart the server after refreshing credentials or changing these values.
 
@@ -49,11 +59,13 @@ The dev route answers only in development and only to this machine, because it s
 
 Tools are Python.
 
-1. Add a function to `lambda/handler.py` and an entry to `TOOLS`.
-2. Add its schema to `lambda/tools.json`. Nested input properties are supported, because Gateway reads the schema from S3.
+1. Add a function in its own `lambda/tool_<name>.py`, and register it in `lambda/handler.py`. Use `CLIENT_TOOLS` if it calls the Virtual Lab with the cohort, or `TOOLS` if it doesn't.
+2. Add its schema to `lambda/tools.json`. Nested input properties are supported, because Gateway reads the schema from S3. Don't offer a cohort parameter, because the agent's hook adds the filter and the model never sees it.
 3. Run `terraform apply`.
 
-The agent finds new tools through Gateway, so its code doesn't change.
+The agent finds new tools through Gateway, so its code doesn't change. Show a tool's result in Chat by adding a renderer to `src/features/chat/toolkit.tsx` in `mmrf-data-commons`.
+
+`terraform plan` doesn't notice Lambda code swapped outside Terraform, so it can report no changes while different code is running. Deploy code only through `terraform apply`.
 
 ## Test
 
@@ -63,6 +75,8 @@ python3 -m unittest discover -s tests -p 'test_handler.py'
 (cd agent && uv run python -m unittest discover -s ../tests -p 'test_scripts.py')
 (cd terraform && terraform fmt -check && terraform validate && terraform test)
 ```
+
+Browser checks use the Chrome DevTools MCP against the deployed agent, after a deploy or when a UI change needs seeing. The steps are in [Acceptance checks in a browser](#acceptance-checks-in-a-browser). There's no automated browser suite.
 
 ## Destroy
 
