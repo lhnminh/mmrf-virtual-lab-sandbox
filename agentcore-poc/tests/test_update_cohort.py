@@ -192,6 +192,39 @@ class Resolvers(unittest.TestCase):
         self.assertEqual(resolve_field("ISS stage").name, "diagnoses.iss_stage")
 
 
+class ValuePunctuation(unittest.TestCase):
+    RISK = "cgs_risk_key_criteria.cgs_risk_category"
+
+    def test_hyphens_and_underscores_match_spaces(self):
+        for text in ("high-risk", "High-Risk", "high_risk", "high risk", " high  risk "):
+            with self.subTest(text=text):
+                resolved = resolve_values(self.RISK, [text], ["High risk", "Standard risk"])
+                self.assertEqual(getattr(resolved, "values", None), ["High risk"])
+
+    def test_a_space_matches_a_hyphen_in_the_data(self):
+        resolved = resolve_values(self.RISK, ["high risk"], ["High-risk", "Standard-risk"])
+        self.assertEqual(getattr(resolved, "values", None), ["High-risk"])
+
+    def test_an_exact_value_beats_one_that_differs_by_punctuation(self):
+        resolved = resolve_values(self.RISK, ["high-risk"], ["High risk", "High-risk"])
+        self.assertEqual(getattr(resolved, "values", None), ["High-risk"])
+
+    def test_values_that_differ_only_by_punctuation_are_ambiguous(self):
+        resolved = resolve_values(self.RISK, ["high_risk"], ["High risk", "High-risk"])
+        self.assertIsInstance(resolved, Ambiguous)
+
+    def test_a_whole_value_beats_a_longer_one_holding_it(self):
+        resolved = resolve_values(self.RISK, ["high-risk"], ["High risk", "Very high risk"])
+        self.assertEqual(getattr(resolved, "values", None), ["High risk"])
+
+    def test_update_cohort_applies_a_hyphenated_value(self):
+        client = FakeClient()
+        client.field_values = lambda field, cohort_filter=None: [("High risk", 334), ("Standard risk", 666)]
+        result = run(one("CGS risk", ["high-risk"]), client=client)
+        self.assertEqual(result["status"], "ok")
+        self.assertEqual(result["changes"][0]["values"], ["High risk"])
+
+
 class CgsRiskNames(unittest.TestCase):
     def test_the_survival_tool_names_for_cgs_risk_resolve(self):
         for name in ("CGS risk", "cgs", "risk", "risk category", "CGS risk category"):

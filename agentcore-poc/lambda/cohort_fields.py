@@ -84,11 +84,17 @@ def resolve_field(text):
     return Closest(closest[:5])
 
 
+def _value_key(text):
+    """A value for comparing, so high-risk, high_risk and High risk are the same."""
+    return " ".join(re.sub(r"[-_]", " ", str(text).lower()).split())
+
+
 def resolve_values(field_name, requested, available):
-    """Case-insensitive exact, then synonyms, then a unique substring. `available` holds
-    (value, count) pairs or plain values."""
+    """Case-insensitive exact, then synonyms, then the same value apart from punctuation,
+    then a unique substring. `available` holds (value, count) pairs or plain values."""
     present = [v[0] if isinstance(v, (tuple, list)) else v for v in available]
     by_lower = {v.lower(): v for v in present}
+    by_key = [(_value_key(v), v) for v in present]
     resolved = []
     for text in requested:
         wanted = str(text).strip().lower()
@@ -96,9 +102,12 @@ def resolve_values(field_name, requested, available):
         if wanted in by_lower:
             match = by_lower[wanted]
         else:
-            partial = [v for low, v in by_lower.items() if wanted and re.search(rf"\b{re.escape(wanted)}\b", low)]
-            if len(partial) != 1:
-                partial = [v for low, v in by_lower.items() if wanted and (wanted in low)]
+            key = _value_key(wanted)
+            partial = [v for k, v in by_key if key and k == key]
+            if not partial:
+                partial = [v for k, v in by_key if key and re.search(rf"\b{re.escape(key)}\b", k)]
+                if len(partial) != 1:
+                    partial = [v for k, v in by_key if key and key in k]
             if len(partial) > 1:
                 return Ambiguous(str(text), partial)
             if not partial:
