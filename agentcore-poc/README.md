@@ -36,8 +36,8 @@ Charts and tool answers read the same deployed Virtual Lab, so no local stack is
 ```sh
 AGENTCORE_RUNTIME_ARN=<terraform output agent_runtime_arn>
 AWS_PROFILE=workshop
-NEXT_PUBLIC_GEN3_API_TARGET=http://localhost:3090
-PROTEINPAINT_API=http://localhost:3091
+NEXT_PUBLIC_GEN3_API_TARGET=http://127.0.0.1:3090
+PROTEINPAINT_API=http://127.0.0.1:3091
 ```
 
 Start the forwarders, then the dev server:
