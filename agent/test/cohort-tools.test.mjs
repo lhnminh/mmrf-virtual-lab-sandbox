@@ -15,6 +15,9 @@ function virtualLab({ counts = [1000, 334], track, gene = { name: 'KRAS', chr: '
   const fetchImpl = async (path, options) => {
     const body = JSON.parse(options.body);
     calls.push({ path, body });
+    if (path === '/guppy/graphql' && body.query.includes('CaseCentric')) {
+      return respond({ data: { CaseCentric_case_centric: [{ case_id: 'b' }, { case_id: 'a' }] } });
+    }
     if (path === '/guppy/graphql' && body.query.includes('_totalCount')) {
       return respond({ data: { Case__aggregation: { case: { _totalCount: remaining.shift() } } } });
     }
@@ -74,9 +77,12 @@ test('update_cohort applies a change and returns the new filter for the UI', asy
   const { fetchImpl } = virtualLab();
   const result = await updateCohort({ fetchImpl })({ changes: [{ field: 'race', op: 'set', values: ['Black'] }] }, {});
   assert.match(result.summary, /from 1000 to 334 synthetic cases/);
+  assert.doesNotMatch(result.summary, /went from/);
   assert.deepEqual(result.plot.filter, { and: [{ in: { [RACE]: ['black or african american'] } }] });
   assert.equal(result.plot.type, 'cohort_update');
-  assert.equal(result.plot.cohort.caseCount, 334);
+  // Chat's Save button reads plot.cohort.name and plot.cohort.caseIds.
+  assert.deepEqual(result.plot.cohort.caseIds, ['a', 'b']);
+  assert.equal(typeof result.plot.cohort.name, 'string');
 });
 
 test('update_cohort reports ambiguous, unknown and empty results without changing the cohort', async () => {
@@ -106,6 +112,9 @@ test('show_lollipop reports samples, variants and the most frequent, within the 
   assert.match(result.summary, /148 samples in this synthetic cohort of 334 cases have a KRAS mutation, across 5 variants/);
   assert.match(result.summary, /Most frequent: p\.Q61H \(38 samples\), p\.G12V \(27 samples\), p\.G12D \(23 samples\)/);
   assert.equal(result.plot.type, 'lollipop');
+  // Chat treats plot.cohort as a saveable cohort, so this result must not set it.
+  assert.equal(result.plot.cohort, undefined);
+  assert.equal(result.plot.selectedCohort.caseCount, 334);
   assert.deepEqual(lab.calls.find(call => call.path.endsWith('/mds3')).body.filter0, filter);
 });
 

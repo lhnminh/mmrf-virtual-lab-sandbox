@@ -17,7 +17,7 @@ export const spec = Object.freeze({
     additionalProperties: false,
   },
 });
-export const promptGuidance = 'For a lollipop plot, or where a gene\'s mutations fall on the protein, call show_lollipop.';
+export const promptGuidance = 'For a lollipop plot, or where a gene\'s mutations fall on the protein, call show_lollipop. Chat cannot draw this plot yet, so give the numbers, say the plot can be opened from ProteinPaint in the Analysis Center, and never say a plot was shown.';
 
 function region(gene) {
   if (!gene.chr || !Number.isFinite(gene.start) || !Number.isFinite(gene.stop)) throw new Error('The gene has no genomic region');
@@ -54,14 +54,14 @@ export function createExecutor({ fetchImpl }) {
     if (!gene.name) throw new Error('The gene lookup had no name');
     const cases = await caseCount(fetchImpl, cohortFilter);
     const { samples, variants } = await track(fetchImpl, gene, cohortFilter);
-    const cohort = { label: cohortLabel(cohortFilter), caseCount: cases };
     if (samples === 0) return { summary: `0 of ${cases} synthetic cases in this cohort have a ${gene.name} mutation.` };
     const topVariants = [...variants].sort((a, b) => (b.occurrence ?? 0) - (a.occurrence ?? 0)).slice(0, TOP_VARIANTS)
       .map(item => ({ change: item.mname, count: item.occurrence ?? 0 }));
     const listing = topVariants.map(item => `${item.change} (${item.count} samples)`).join(', ');
     return {
       summary: `${samples} samples in this synthetic cohort of ${cases} cases have a ${gene.name} mutation, across ${variants.length} variants. Most frequent: ${listing}.`,
-      plot: { type: 'lollipop', gene: gene.name, sampleCount: samples, variantCount: variants.length, topVariants, cohort },
+      plot: { type: 'lollipop', gene: gene.name, sampleCount: samples, variantCount: variants.length, topVariants,
+        selectedCohort: { label: cohortLabel(cohortFilter), caseCount: cases } },
     };
   };
 }

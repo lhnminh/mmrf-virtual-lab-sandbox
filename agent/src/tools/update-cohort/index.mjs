@@ -1,5 +1,5 @@
-import { createWrappedTool } from '../shared.mjs';
-import { caseCount, fieldValues } from '../virtual-lab.mjs';
+import { cohortProposal, createWrappedTool } from '../shared.mjs';
+import { caseCount, caseIds, fieldValues } from '../virtual-lab.mjs';
 import { applyChanges, cohortLabel } from './filter.mjs';
 import { resolveField, resolveValues } from './match.mjs';
 
@@ -27,7 +27,7 @@ export const spec = Object.freeze({
     required: ['changes'],
   },
 });
-export const promptGuidance = 'If the question changes who is in the cohort, call update_cohort before other tools. Comparing groups does not change the cohort. If update_cohort says a value is ambiguous, ask one question offering its options and run no other tools until answered.';
+export const promptGuidance = 'If the question changes who is in the cohort, call update_cohort before other tools. Comparing groups does not change the cohort. If update_cohort says a value is ambiguous, ask one question offering its options and run no other tools until answered. The change takes effect only when the researcher clicks the Save button under your answer, so say that and never say the cohort has already changed.';
 
 function validChanges(changes) {
   return Array.isArray(changes) && changes.length > 0 && changes.every(change =>
@@ -71,10 +71,12 @@ export function createExecutor({ fetchImpl }) {
     const casesBefore = await caseCount(fetchImpl, cohortFilter);
     const casesAfter = await caseCount(fetchImpl, filter);
     if (casesAfter === 0) return { summary: 'That change would leave no cases, so the cohort is unchanged.' };
-    const cohort = { label: cohortLabel(filter), caseCount: casesAfter };
+    const label = cohortLabel(filter);
     return {
-      summary: `The cohort went from ${casesBefore} to ${casesAfter} synthetic cases. It is now: ${cohort.label}.`,
-      plot: { type: 'cohort_update', filter, cohort, changes: resolved, casesBefore, casesAfter },
+      summary: `This change would take the cohort from ${casesBefore} to ${casesAfter} synthetic cases: ${label}.`,
+      // Chat offers plot.cohort, with its case ids, through the Save cohort button.
+      plot: { type: 'cohort_update', filter, label, changes: resolved, casesBefore, casesAfter,
+        cohort: cohortProposal(label, await caseIds(fetchImpl, filter)) },
     };
   };
 }
