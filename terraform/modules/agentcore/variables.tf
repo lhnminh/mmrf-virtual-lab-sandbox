@@ -60,7 +60,7 @@ variable "max_output_tokens" {
 }
 
 variable "agent_zip_path" {
-  description = "Agent package built by agentcore-poc/scripts/build_agent.sh."
+  description = "Agent package built by agentcore/scripts/build_agent.sh."
   type        = string
 }
 

@@ -4,7 +4,7 @@ variables {
   sandbox_account_id = "123456789012"
   sandbox_origin     = "https://example.cloudfront.net"
   agent_zip_path     = "tests/fixtures/agent.zip"
-  source_dir         = "../../../agentcore-poc"
+  source_dir         = "../../../agentcore"
   region             = "us-west-2"
   name               = "mmrf_synthetic_agent"
 }
@@ -42,15 +42,15 @@ run "gateway_uses_iam_and_lists_the_tools" {
     error_message = "Tools must appear as virtual-lab___<tool>"
   }
   assert {
-    condition     = strcontains(aws_bedrockagentcore_gateway_target.virtual_lab.target_configuration[0].mcp[0].lambda[0].tool_schema[0].s3[0].uri, filemd5("../../../agentcore-poc/lambda/tools.json"))
+    condition     = strcontains(aws_bedrockagentcore_gateway_target.virtual_lab.target_configuration[0].mcp[0].lambda[0].tool_schema[0].s3[0].uri, filemd5("../../../agentcore/lambda/tools.json"))
     error_message = "Target tools must come from the schema in S3"
   }
   assert {
-    condition     = strcontains(aws_s3_object.tool_schema.key, filemd5("../../../agentcore-poc/lambda/tools.json"))
+    condition     = strcontains(aws_s3_object.tool_schema.key, filemd5("../../../agentcore/lambda/tools.json"))
     error_message = "A changed tools.json must change the key"
   }
   assert {
-    condition     = aws_s3_object.tool_schema.source_hash == filemd5("../../../agentcore-poc/lambda/tools.json")
+    condition     = aws_s3_object.tool_schema.source_hash == filemd5("../../../agentcore/lambda/tools.json")
     error_message = "The schema must re-upload when tools.json changes"
   }
 }

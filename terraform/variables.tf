@@ -62,7 +62,7 @@ variable "enable_agentcore" {
   }
 }
 variable "agent_zip_path" {
-  description = "Agent package. Defaults to the output of agentcore-poc/scripts/build_agent.sh."
+  description = "Agent package. Defaults to the output of agentcore/scripts/build_agent.sh."
   type        = string
   default     = null
 }

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Send one AG-UI run to the deployed agent and print each event with its arrival time.
 
-Run from agentcore-poc/agent: uv run python ../scripts/invoke.py "Is the Virtual Lab healthy?"
+Run from agentcore/agent: uv run python ../scripts/invoke.py "Is the Virtual Lab healthy?"
 """
 import argparse
 import hashlib

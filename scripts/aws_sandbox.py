@@ -230,7 +230,7 @@ class Operator:
         if skip_build and not (self.directory / "build.json").exists():
             raise ValueError("Run build first before --skip-build")
         if self.config.get("enable_agentcore"):
-            self.run(["bash", ROOT / "agentcore-poc/scripts/build_agent.sh"])
+            self.run(["bash", ROOT / "agentcore/scripts/build_agent.sh"])
         self.init_terraform()
         self.tf("plan", "-input=false", "-out=sandbox.tfplan")
         confirm(self.config, yes, "CREATE/UPDATE the displayed sandbox resources")

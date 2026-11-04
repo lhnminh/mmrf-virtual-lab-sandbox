@@ -19,6 +19,8 @@ The Runtime keeps the `:*` trust from the AWS Runtime docs. The Gateway form com
 
 ## Stage 2: `feature/agentcore-module`
 
+The folder `agentcore-poc` was later renamed `agentcore`. Paths below use the old name.
+
 Done on 2026-11-04, before the demo, by the user's decision. The new stack is created alongside the POC, and the POC is destroyed only after the new one is verified.
 
 Move the stack into root `terraform/` as a child module.

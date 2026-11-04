@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Copy the launcher's Virtual Lab login into the tool's secret. Prints neither value.
 
-Run from agentcore-poc/agent: uv run python ../scripts/set_access_secret.py --access-file PATH
+Run from agentcore/agent: uv run python ../scripts/set_access_secret.py --access-file PATH
 """
 import argparse
 import json

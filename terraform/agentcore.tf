@@ -8,8 +8,8 @@ module "agentcore" {
   # Runtime names allow letters, digits and underscores only.
   name           = "${replace(var.name, "-", "_")}_agent"
   sandbox_origin = "https://${aws_cloudfront_distribution.sandbox[0].domain_name}"
-  agent_zip_path = coalesce(var.agent_zip_path, "${path.module}/../agentcore-poc/build/agent.zip")
-  source_dir     = "${path.module}/../agentcore-poc"
+  agent_zip_path = coalesce(var.agent_zip_path, "${path.module}/../agentcore/build/agent.zip")
+  source_dir     = "${path.module}/../agentcore"
 }
 
 output "agent_runtime_arn" {
