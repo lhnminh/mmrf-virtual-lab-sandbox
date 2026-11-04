@@ -177,3 +177,15 @@ The first apply failed while uploading the agent zip, after deleting the old one
 
 **Local dev:** after refreshing AWS credentials, restart `next dev`. Until then Chat shows `HTTP 502`, and the log shows a `SyntaxError` for what is a 403 from AWS.
 The checks above ran before the stack moved into the root module.
+
+### Gene clustering tool
+
+Run on 2026-11-04 on the deployed agent. `show_gene_clustering` takes no inputs, reads the top 20 variably expressed genes, and opens the real chart in Chat with ProteinPaint's start screen skipped.
+
+| Check | What happened |
+| --- | --- |
+| "Show gene expression clustering" through `scripts/invoke.py` | The tool ran on all 1,000 cases, and the answer listed the 20 genes without describing clusters |
+| The heatmap on the deployed site | Confirmed working by the user in the browser |
+
+The rest of the spec's live checks weren't run or recorded: the 167 case cohort, the chart's gene order against the answer, the chart's fit in the chat column, a second chart in one thread, and the answers to "Which patients cluster together?", "Show the MEK gene set" and "Show the top 50 genes". `too_few_samples` is covered by unit tests, and the service's reply was seen with a direct request.
+
