@@ -306,3 +306,144 @@ class LauncherTests(unittest.TestCase):
             operator.deploy(yes=True)
         operator.tf.assert_any_call("apply", "-input=false", "sandbox.tfplan")
         operator.publish.assert_not_called()
+
+
+GRAPH_CONFIG = {**CONFIG, "enable_knowledge_graph": True}
+GRAPH_OUTPUTS = {"knowledge_graph_ingest_bucket": "kg-bucket", "knowledge_graph_ingest_function": "kg-ingest"}
+
+
+class KnowledgeGraphTests(unittest.TestCase):
+    def deploy_with_mocks(self, config):
+        operator = launcher.Operator(config)
+        order = Mock()
+        for name in ["preflight", "build", "init_terraform", "publish", "install", "build_knowledge_graph", "load_graph"]:
+            mock = Mock()
+            setattr(operator, name, mock)
+            order.attach_mock(mock, name)
+        operator.tf = Mock()
+        order.attach_mock(operator.tf, "tf")
+        operator.outputs = Mock(return_value=GRAPH_OUTPUTS)
+        return operator, order
+
+    def tfvars_for(self, config):
+        operator = launcher.Operator(config)
+        operator.tf = Mock(return_value="default\n")
+        with patch.object(launcher, "private_json") as written:
+            operator.init_terraform()
+        return written.call_args.args[1]
+
+    def loader(self, invoke_result=None, response=None, fail_on=None):
+        """An operator whose commands are recorded, with the invoke result and outfile faked."""
+        operator = launcher.Operator(GRAPH_CONFIG)
+        directory = tempfile.TemporaryDirectory()
+        self.addCleanup(directory.cleanup)
+        operator.directory = Path(directory.name)
+        operator.identity = Mock()
+        operator.outputs = Mock(return_value=GRAPH_OUTPUTS)
+        calls = []
+
+        def run(args, **kwargs):
+            line = [str(arg) for arg in args]
+            calls.append(line)
+            if fail_on and any(fail_on in arg for arg in line):
+                raise subprocess.CalledProcessError(1, line)
+            if "invoke" in line:
+                Path(line[-1]).write_text(json.dumps(response or {"nodes": 74, "relationships": 87}))
+                return json.dumps(invoke_result or {"StatusCode": 200})
+            return ""
+
+        operator.run = run
+        return operator, calls
+
+    def test_knowledge_graph_flag_reaches_the_tfvars(self):
+        self.assertIs(self.tfvars_for(GRAPH_CONFIG)["enable_knowledge_graph"], True)
+
+    def test_config_without_the_flag_means_off(self):
+        self.assertIs(self.tfvars_for(CONFIG)["enable_knowledge_graph"], False)
+        operator, _ = self.deploy_with_mocks(CONFIG)
+        operator.deploy(yes=True)
+        operator.build_knowledge_graph.assert_not_called()
+        operator.load_graph.assert_not_called()
+
+    def test_deploy_builds_the_package_before_planning(self):
+        operator, order = self.deploy_with_mocks(GRAPH_CONFIG)
+        operator.deploy(yes=True)
+        names = [call[0] for call in order.mock_calls]
+        self.assertLess(names.index("build_knowledge_graph"), names.index("tf"))
+
+    def test_deploy_loads_the_graph_after_install(self):
+        operator, order = self.deploy_with_mocks(GRAPH_CONFIG)
+        operator.deploy(yes=True)
+        names = [call[0] for call in order.mock_calls]
+        self.assertLess(names.index("install"), names.index("load_graph"))
+        operator.load_graph.assert_called_once_with(GRAPH_OUTPUTS)
+
+    def test_load_failure_tells_the_operator_how_to_rerun(self):
+        for failure in (ValueError("no"), subprocess.CalledProcessError(1, "x")):
+            with self.subTest(failure=failure):
+                operator, _ = self.deploy_with_mocks(GRAPH_CONFIG)
+                operator.load_graph.side_effect = failure
+                with self.assertRaisesRegex(ValueError, "load-graph"):
+                    operator.deploy(yes=True)
+
+    def test_load_graph_steps_run_in_order(self):
+        operator, calls = self.loader()
+        operator.load_graph(GRAPH_OUTPUTS)
+        steps = [" ".join(call) for call in calls]
+        self.assertIn("fetch_monarch.py", steps[0])
+        self.assertIn("fetch_dismech.py --revision b1ca0b232b815a21b4ba95a62828c9979e9a49e7", steps[1])
+        for step, name in zip(steps[2:5], ("monarch_mm.json", "dismech_mm.yaml", "dismech_mm.yaml.provenance.json")):
+            self.assertIn("s3 cp", step)
+            self.assertIn(name + " s3://kg-bucket/raw/" + name, step)
+        self.assertIn("lambda invoke --function-name kg-ingest", steps[5])
+        self.assertEqual(len(steps), 6)
+
+    def test_fetch_failure_uploads_nothing(self):
+        operator, calls = self.loader(fail_on="fetch_dismech.py")
+        with self.assertRaises(subprocess.CalledProcessError):
+            operator.load_graph(GRAPH_OUTPUTS)
+        self.assertFalse([call for call in calls if "s3" in call or "lambda" in call])
+
+    def test_lambda_function_error_fails_the_load(self):
+        operator, _ = self.loader(invoke_result={"StatusCode": 200, "FunctionError": "Unhandled"},
+                                  response={"errorMessage": "denied"})
+        with self.assertRaisesRegex(ValueError, "denied"):
+            operator.load_graph(GRAPH_OUTPUTS)
+
+    def test_load_graph_reports_counts_and_versions(self):
+        response = {"nodes": 74, "relationships": 87, "monarch_version": "m", "dismech_version": "d"}
+        operator, _ = self.loader(response=response)
+        self.assertEqual(operator.load_graph(GRAPH_OUTPUTS), response)
+
+    def test_load_graph_alone_checks_the_account_and_reads_outputs(self):
+        operator, _ = self.loader()
+        operator.load_graph()
+        operator.identity.assert_called_once()
+        operator.outputs.assert_called_once()
+
+    def test_load_graph_needs_the_flag(self):
+        operator = launcher.Operator(CONFIG)
+        with self.assertRaisesRegex(ValueError, "enable_knowledge_graph"):
+            operator.load_graph(GRAPH_OUTPUTS)
+
+    def test_destroy_builds_the_missing_package_first(self):
+        operator = launcher.Operator(GRAPH_CONFIG)
+        order = Mock()
+        for name in ["identity", "init_terraform", "build_knowledge_graph"]:
+            mock = Mock()
+            setattr(operator, name, mock)
+            order.attach_mock(mock, name)
+        operator.tf = Mock(side_effect=lambda *args, **kwargs: "{}" if args[0] == "show" else "")
+        with patch.object(launcher, "KG_PACKAGE", Path("/nonexistent/lambda.zip")):
+            operator.destroy(yes=True)
+        names = [call[0] for call in order.mock_calls]
+        self.assertLess(names.index("build_knowledge_graph"), names.index("init_terraform"))
+
+    def test_destroy_keeps_an_existing_package(self):
+        operator = launcher.Operator(GRAPH_CONFIG)
+        for name in ["identity", "init_terraform", "build_knowledge_graph"]:
+            setattr(operator, name, Mock())
+        operator.tf = Mock(side_effect=lambda *args, **kwargs: "{}" if args[0] == "show" else "")
+        with tempfile.NamedTemporaryFile() as package, patch.object(launcher, "KG_PACKAGE", Path(package.name)):
+            operator.destroy(yes=True)
+        operator.build_knowledge_graph.assert_not_called()

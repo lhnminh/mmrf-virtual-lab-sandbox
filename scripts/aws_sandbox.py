@@ -24,6 +24,10 @@ from uuid import uuid4
 
 ROOT = Path(__file__).resolve().parents[1]
 SERVICES = ("seed", "guppy", "analysis", "proteinpaint", "identity", "frontend")
+KG_ROOT = ROOT / "knowledge-graph"
+KG_PACKAGE = KG_ROOT / "build/lambda.zip"
+KG_RAW_FILES = ("monarch_mm.json", "dismech_mm.yaml", "dismech_mm.yaml.provenance.json")
+DISMECH_REVISION = "b1ca0b232b815a21b4ba95a62828c9979e9a49e7"  # Release v0.1.46
 NAMESPACE = "mmrf-synthetic"
 CONFIG = ROOT / "generated/aws/config.json"
 
@@ -102,6 +106,7 @@ class Operator:
             "vpc_cidr": c["vpc_cidr"], "kubernetes_version": c["kubernetes_version"],
             "enable_https": True,
             "enable_agentcore": bool(c.get("enable_agentcore")),
+            "enable_knowledge_graph": bool(c.get("enable_knowledge_graph")),
         })
         self.tf("init", "-backend=false", "-input=false")
         if self.tf("workspace", "show", capture=True).strip() != "default":
@@ -259,6 +264,8 @@ class Operator:
             raise ValueError("Run build first before --skip-build")
         if self.config.get("enable_agentcore"):
             self.run(["bash", ROOT / "agentcore/scripts/build_agent.sh"])
+        if self.config.get("enable_knowledge_graph"):
+            self.build_knowledge_graph()
         self.init_terraform()
         self.tf("plan", "-input=false", "-out=sandbox.tfplan")
         confirm(self.config, yes, "CREATE/UPDATE the displayed sandbox resources")
@@ -272,6 +279,40 @@ class Operator:
         self.install(outputs, self.publish(outputs))
         if self.config.get("enable_agentcore"):
             self.fill_agent_secret(outputs)
+        if self.config.get("enable_knowledge_graph"):
+            try:
+                self.load_graph(outputs)
+            except (subprocess.CalledProcessError, ValueError) as error:
+                raise ValueError(f"Graph load failed ({error}). Fix it, then run: python3 scripts/aws_sandbox.py load-graph") from error
+
+    def build_knowledge_graph(self):
+        self.kg_script("build_lambda.py")
+
+    def kg_script(self, name, *args):
+        self.run(["uv", "run", "--project", KG_ROOT, "python", KG_ROOT / "scripts" / name, *args])
+
+    def load_graph(self, outputs=None):
+        """Fetch the public sources, upload them, and write the graph. Safe to rerun: every write is a MERGE."""
+        if not self.config.get("enable_knowledge_graph"):
+            raise ValueError("Set enable_knowledge_graph in the configuration and deploy first")
+        if outputs is None:
+            self.identity()
+            outputs = self.outputs()
+        self.kg_script("fetch_monarch.py")
+        self.kg_script("fetch_dismech.py", "--revision", DISMECH_REVISION)
+        where = ["--profile", self.config["profile"], "--region", self.config["region"]]
+        bucket = outputs["knowledge_graph_ingest_bucket"]
+        for name in KG_RAW_FILES:
+            self.run(["aws", "s3", "cp", KG_ROOT / "data/raw" / name, f"s3://{bucket}/raw/{name}", *where])
+        response_file = self.directory / "kg-ingest.json"
+        result = json.loads(self.run(["aws", "lambda", "invoke", "--function-name", outputs["knowledge_graph_ingest_function"],
+                                      "--cli-read-timeout", "300", *where, "--output", "json", response_file], capture=True))
+        response = json.loads(response_file.read_text())
+        # The command succeeds even when the function fails, so this is the only sign of a failed load.
+        if "FunctionError" in result:
+            raise ValueError("kg-ingest failed: " + str(response.get("errorMessage", response)))
+        print("Graph loaded: " + json.dumps(response), flush=True)
+        return response
 
     def fill_agent_secret(self, outputs):
         """Copy the team login to the tools' secret. Through stdin, so it isn't in a process list."""
@@ -299,6 +340,9 @@ class Operator:
 
     def destroy(self, yes=False):
         self.identity()
+        # Terraform reads the package while planning, even to destroy.
+        if self.config.get("enable_knowledge_graph") and not KG_PACKAGE.exists():
+            self.build_knowledge_graph()
         self.init_terraform()
         self.tf("plan", "-destroy", "-input=false", "-out=destroy.tfplan")
         confirm(self.config, yes, "DELETE the displayed sandbox resources and their six image repositories")
@@ -420,7 +464,7 @@ def initialize(args):
         raise ValueError("Terraform state already exists without operator configuration; recover its original configuration first")
     config = {"profile": args.profile, "account_id": args.account_id, "region": args.region,
               "name": args.name, "vpc_cidr": args.vpc_cidr, "kubernetes_version": args.kubernetes_version,
-              "enable_agentcore": args.enable_agentcore}
+              "enable_agentcore": args.enable_agentcore, "enable_knowledge_graph": args.enable_knowledge_graph}
     import re
     if not re.fullmatch(r"\d{12}", args.account_id) or not re.fullmatch(r"[a-z][a-z0-9-]{2,30}", args.name):
         raise ValueError("Use a twelve-digit account ID and a 3–31 character lowercase deployment name")
@@ -473,7 +517,8 @@ def main():
     init.add_argument("--role-arn")
     init.add_argument("--operator-cidr")
     init.add_argument("--enable-agentcore", action="store_true", help="Also deploy the agent, Gateway and tools")
-    for command in ("check", "build", "deploy", "status", "destroy", "credentials"):
+    init.add_argument("--enable-knowledge-graph", action="store_true", help="Also deploy the knowledge graph and load it")
+    for command in ("check", "build", "deploy", "status", "destroy", "credentials", "load-graph"):
         p = sub.add_parser(command)
         if command in ("build", "deploy"):
             p.add_argument("--only", type=parse_services, help="Rebuild these comma-separated services; reuse the rest")
@@ -501,7 +546,8 @@ def main():
         raise ValueError("Run init first in this dedicated checkout")
     config = json.loads(CONFIG.read_text())
     operator = Operator(config)
-    for tool in ("aws", "terraform", "docker", "kubectl", "helm"):
+    required = ("aws", "terraform", "docker", "kubectl", "helm") + (("uv",) if config.get("enable_knowledge_graph") else ())
+    for tool in required:
         if not shutil.which(tool):
             raise ValueError("Missing local tool: " + tool)
     if args.command == "credentials":
@@ -519,6 +565,8 @@ def main():
                 operator.deploy(args.yes, args.skip_build, args.only)
         elif args.command == "destroy":
             operator.destroy(args.yes)
+        elif args.command == "load-graph":
+            operator.load_graph()
         elif args.command == "check":
             operator.preflight()
         else:
