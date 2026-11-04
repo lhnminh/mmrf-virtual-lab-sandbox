@@ -1,0 +1,194 @@
+{
+  "fields": {
+    "administered_regimen_lines.first_line": {
+      "label": "First Line",
+      "supported": true
+    },
+    "administered_regimen_lines.line": {
+      "label": "Line",
+      "supported": false
+    },
+    "administered_regimen_lines.reason_for_discontinuation": {
+      "label": "Reason For Discontinuation",
+      "supported": true
+    },
+    "administered_regimen_lines.regimen_duration": {
+      "label": "Regimen Duration",
+      "supported": false
+    },
+    "administered_regimen_lines.regimen_name": {
+      "label": "Regimen Name",
+      "supported": true
+    },
+    "administered_regimen_lines.regimen_short_name": {
+      "label": "Regimen Short Name",
+      "supported": true
+    },
+    "bone_assessments.lytic_bone_lesion_present": {
+      "label": "Lytic Bone Lesion Present",
+      "supported": true
+    },
+    "bone_assessments.mm_bone_lesion_femur": {
+      "label": "MM Bone Lesion Femur",
+      "supported": true
+    },
+    "bone_assessments.mm_bone_lesion_pelvis": {
+      "label": "MM Bone Lesion Pelvis",
+      "supported": true
+    },
+    "bone_assessments.mm_bone_lesion_ribs": {
+      "label": "MM Bone Lesion Ribs",
+      "supported": true
+    },
+    "bone_assessments.mm_bone_lesion_skull": {
+      "label": "MM Bone Lesion Skull",
+      "supported": true
+    },
+    "bone_assessments.mm_bone_lesion_spine": {
+      "label": "MM Bone Lesion Spine",
+      "supported": true
+    },
+    "bone_assessments.number_of_lytic_lesions": {
+      "label": "Number Of Lytic Lesions",
+      "supported": true
+    },
+    "bone_assessments.osteopenia_osteoporosis": {
+      "label": "Osteopenia Osteoporosis",
+      "supported": true
+    },
+    "cgs_risk_key_criteria.cgs_risk_category": {
+      "label": "CGS Risk Category",
+      "supported": true
+    },
+    "cgs_risk_key_criteria.cgs_risk_criteria": {
+      "label": "CGS Risk Criteria",
+      "supported": true
+    },
+    "cgs_risk_key_criteria.other_criteria": {
+      "label": "Other Criteria",
+      "supported": true
+    },
+    "demographic.age_at_index": {
+      "label": "Age at Index",
+      "supported": false
+    },
+    "demographic.days_to_death": {
+      "label": "Days To Death",
+      "supported": false
+    },
+    "demographic.ethnicity": {
+      "label": "Ethnicity",
+      "supported": true
+    },
+    "demographic.gender": {
+      "label": "Sex",
+      "supported": true
+    },
+    "demographic.race": {
+      "label": "Race",
+      "supported": true
+    },
+    "demographic.vital_status": {
+      "label": "Vital Status",
+      "supported": true
+    },
+    "demographic.year_of_death": {
+      "label": "Year of Death",
+      "supported": false
+    },
+    "diagnoses.age_at_diagnosis": {
+      "label": "Age at Diagnosis",
+      "supported": false
+    },
+    "diagnoses.best_overall_response": {
+      "label": "Best Overall Response",
+      "supported": true
+    },
+    "diagnoses.bmi_at_diagnosis": {
+      "label": "BMI at Diagnosis",
+      "supported": true
+    },
+    "diagnoses.days_to_best_overall_response": {
+      "label": "Days To Best Overall Response",
+      "supported": false
+    },
+    "diagnoses.days_to_diagnosis": {
+      "label": "Days To Diagnosis",
+      "supported": false
+    },
+    "diagnoses.days_to_last_follow_up": {
+      "label": "Days To Last Follow Up",
+      "supported": false
+    },
+    "diagnoses.first_progressive_disease": {
+      "label": "First Progressive Disease",
+      "supported": true
+    },
+    "diagnoses.iss_stage": {
+      "label": "ISS Stage",
+      "supported": true
+    },
+    "disease_type": {
+      "label": "Disease Type",
+      "supported": true
+    },
+    "family_histories.relatives_with_cancer_history_count": {
+      "label": "Relatives With Cancer History",
+      "supported": false
+    },
+    "files.experimental_strategy": {
+      "label": "Experimental Strategy",
+      "supported": true
+    },
+    "follow_ups.ecog_performance_status": {
+      "label": "Ecog Performance Status",
+      "supported": true
+    },
+    "outcomes.censor_os": {
+      "label": "Censor OS",
+      "supported": true
+    },
+    "outcomes.censor_pfs": {
+      "label": "Censor PFS",
+      "supported": true
+    },
+    "outcomes.surivival_time_os": {
+      "label": "Survival Time OS",
+      "supported": false
+    },
+    "outcomes.survival_time_pfs": {
+      "label": "Survival Time PFS",
+      "supported": false
+    },
+    "primary_site": {
+      "label": "Primary Site",
+      "supported": true
+    },
+    "project.project_id": {
+      "label": "Project ID",
+      "supported": true
+    },
+    "samples.sample_type": {
+      "label": "Sample Type",
+      "supported": true
+    },
+    "samples.specimen_type": {
+      "label": "Specimen Type",
+      "supported": true
+    },
+    "samples.tissue_type": {
+      "label": "Tissue Type",
+      "supported": true
+    }
+  },
+  "synonyms": {
+    "gender": "demographic.gender",
+    "sex": "demographic.gender"
+  },
+  "valueSynonyms": {
+    "man": "male",
+    "men": "male",
+    "woman": "female",
+    "women": "female"
+  }
+}

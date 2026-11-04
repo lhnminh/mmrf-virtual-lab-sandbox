@@ -54,6 +54,29 @@ class Routing(unittest.TestCase):
         self.assertEqual(result["step"], "unknown_tool")
 
 
+class ClientToolRouting(unittest.TestCase):
+    def setUp(self):
+        self.addCleanup(setattr, tool, "read_login", tool.read_login)
+        self.addCleanup(tool.CLIENT_TOOLS.__setitem__, "update_cohort", tool.CLIENT_TOOLS["update_cohort"])
+        self.addCleanup(tool.os.environ.pop, "SANDBOX_ORIGIN", None)
+
+    def test_client_tool_gets_a_client(self):
+        seen = []
+        tool.read_login = lambda: LOGIN
+        tool.os.environ["SANDBOX_ORIGIN"] = "https://lab.invalid"
+        tool.CLIENT_TOOLS["update_cohort"] = lambda args, client: seen.append((args, client)) or {"status": "ok"}
+        result = tool.handler({"changes": []}, context_for("virtual-lab___update_cohort"))
+        self.assertEqual(result, {"status": "ok"})
+        self.assertEqual(seen[0][0], {"changes": []})
+        self.assertIsInstance(seen[0][1], tool.VirtualLabClient)
+
+    def test_unreadable_login_is_config_error(self):
+        tool.read_login = raising(tool.ConfigError("no value"))
+        tool.os.environ["SANDBOX_ORIGIN"] = "https://lab.invalid"
+        result = tool.handler({}, context_for("virtual-lab___update_cohort"))
+        self.assertEqual((result["status"], result["step"]), ("error", "config_error"))
+
+
 class Health(unittest.TestCase):
     def test_healthy(self):
         result = check()

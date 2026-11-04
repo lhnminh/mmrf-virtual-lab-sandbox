@@ -8,6 +8,8 @@ import urllib.error
 import urllib.request
 
 from results import failure, ok
+from tool_update_cohort import update_cohort
+from virtual_lab_client import VirtualLabClient
 
 logger = logging.getLogger(__name__)
 
@@ -96,11 +98,19 @@ def check_virtual_lab_health(args, *, fetch_status=fetch_status, read_login=read
 
 
 TOOLS = {"check_virtual_lab_health": check_virtual_lab_health}
+CLIENT_TOOLS = {"update_cohort": update_cohort}  # These take (args, client).
 
 
 def handler(event, context):
     full_name = context.client_context.custom["bedrockAgentCoreToolName"]
     name = full_name.split("___", 1)[-1]
+    client_tool = CLIENT_TOOLS.get(name)
+    if client_tool is not None:
+        try:
+            client = VirtualLabClient(os.environ["SANDBOX_ORIGIN"], read_login())
+        except (ConfigError, KeyError):
+            return failure("config_error", "The Virtual Lab login isn't configured.")
+        return client_tool(event, client)
     tool = TOOLS.get(name)
     if tool is None:
         return failure("unknown_tool", f"There is no tool named {name}.")

@@ -6,5 +6,45 @@
       "type": "object",
       "properties": {}
     }
+  },
+  {
+    "name": "update_cohort",
+    "description": "Adds, replaces or removes filters on the researcher's selected cohort, which then shows in the cohort dropdown. Use it when the researcher asks to change who is in the cohort, such as 'only Black patients' or 'drop the sex filter'. Give each field and value as the researcher said it; the tool matches them to the data and says if a value is ambiguous or unknown. op is 'set' (replaces any existing value on that field) or 'remove' (values are not needed). All changes in one call apply together or not at all. It never takes a cohort, and only reports the change.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "changes": {
+          "type": "array",
+          "description": "The changes to make, applied together.",
+          "items": {
+            "type": "object",
+            "properties": {
+              "field": {
+                "type": "string",
+                "description": "The field, as the researcher said it, such as race, sex or ISS stage."
+              },
+              "values": {
+                "type": "array",
+                "description": "The values to match, as the researcher said them. Leave empty for remove.",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "op": {
+                "type": "string",
+                "description": "Either 'set' or 'remove'."
+              }
+            },
+            "required": [
+              "field",
+              "op"
+            ]
+          }
+        }
+      },
+      "required": [
+        "changes"
+      ]
+    }
   }
 ]
