@@ -72,7 +72,7 @@ def update_cohort(args, client):
         logger.error("Virtual Lab call failed at %s", error.step)
         return failure(error.step, str(error))
     except ValueError:
-        return failure("unsupported_filter", "The current cohort has a filter that can't be changed here.")
+        return failure("unsupported_filter", "This cohort has a filter chat can't edit. Change it in Cohort Builder.")
     if after == 0:
         return outcome("would_be_empty", "That change would leave no cases, so the cohort is unchanged.",
                        changes=resolved, caseCount=0)

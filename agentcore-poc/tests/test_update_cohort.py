@@ -131,9 +131,18 @@ class Outcomes(unittest.TestCase):
         self.assertEqual(result["status"], "error")
         self.assertEqual(result["step"], "unreachable")
 
-    def test_unreadable_base_filter_is_an_error(self):
+    def test_age_range_does_not_block_removing_sex(self):
+        age = {">=": {"demographic.age_at_index": 50}}
+        base = {"and": [age, {"in": {"demographic.gender": ["male"]}}]}
+        result = run(one("sex", [], "remove"), base=base)
+        self.assertEqual(result["status"], "ok")
+        self.assertEqual(result["filter"], {"and": [age]})
+
+    def test_unreadable_base_filter_tells_the_model_what_to_say(self):
         result = run(one("race", ["white"]), base={"or": []})
         self.assertEqual(result["status"], "error")
+        self.assertEqual(result["step"], "unsupported_filter")
+        self.assertIn("Cohort Builder", result["summary"])
         self.assertNotIn("filter", result)
 
     def test_absent_or_none_cohort_filter_means_no_filter(self):

@@ -13,6 +13,12 @@ CASE_IDS = {"and": [{"in": {"case_id": ["SYNTH-CASE-0001", "SYNTH-CASE-0002"]}}]
 FIVE_HUNDRED_CASE_IDS = {"and": [{"in": {"case_id": [f"SYNTH-CASE-{n:04d}" for n in range(500)]}}]}
 
 
+AGE_RANGE = {">=": {"demographic.age_at_index": 50}}
+NESTED = {"nested": {"path": "samples", "in": {"sample_type": ["Primary"]}}}
+EXISTS = {"not": {"diagnoses.iss_stage": None}}
+NUMERIC_IN = {"in": {"bone_assessments.number_of_lytic_lesions": [1, 2]}}
+
+
 def change(field, values, op="set"):
     return {"field": field, "values": values, "op": op}
 
@@ -54,12 +60,34 @@ class ApplyChanges(unittest.TestCase):
         apply_changes(before, [change("demographic.race", ["asian"])])
         self.assertEqual(before, {"and": [{"in": {"demographic.race": ["white"]}}]})
 
-    def test_unknown_shape_raises(self):
-        for shape in ({"or": [{"in": {"demographic.race": ["white"]}}]},
-                      {"and": [{"nested": {"path": "x", "in": {"y": ["z"]}}}]},
-                      {"=": {"demographic.race": "white"}}, ["x"]):
+    def test_range_and_nested_entries_survive_a_set(self):
+        for other in (AGE_RANGE, NESTED, EXISTS, NUMERIC_IN):
+            with self.subTest(other=other):
+                base = {"and": [{"in": {"demographic.race": ["black"]}}, other]}
+                result = apply_changes(base, [change("demographic.race", ["white"])])
+                self.assertEqual(result, {"and": [{"in": {"demographic.race": ["white"]}}, other]})
+
+    def test_range_and_nested_entries_survive_a_remove(self):
+        for other in (AGE_RANGE, NESTED, EXISTS, NUMERIC_IN):
+            with self.subTest(other=other):
+                base = {"and": [other, {"in": {"demographic.gender": ["male"]}}]}
+                result = apply_changes(base, [change("demographic.gender", [], "remove")])
+                self.assertEqual(result, {"and": [other]})
+
+    def test_bare_opaque_entry_is_kept(self):
+        result = apply_changes(AGE_RANGE, [change("demographic.race", ["white"])])
+        self.assertEqual(result, {"and": [AGE_RANGE, {"in": {"demographic.race": ["white"]}}]})
+
+    def test_unsafe_shapes_raise(self):
+        race = [change("demographic.race", ["white"])]
+        for shape, changes in (
+                ({"or": [{"in": {"demographic.race": ["white"]}}]}, race),
+                ({"and": [], "or": []}, race),
+                ({"and": [{"in": {"demographic.race": [1, 2]}}]}, race),
+                ({"and": [{"in": {"demographic.race": [1]}}]}, [change("demographic.race", [], "remove")]),
+                (["x"], race)):
             with self.subTest(shape=shape), self.assertRaises(ValueError):
-                apply_changes(shape, [change("demographic.gender", ["male"])])
+                apply_changes(shape, changes)
 
 
 class Label(unittest.TestCase):
@@ -71,6 +99,18 @@ class Label(unittest.TestCase):
 
     def test_label_never_lists_case_ids(self):
         self.assertEqual(label(FIVE_HUNDRED_CASE_IDS), "Selected cases")
+
+    def test_label_marks_other_filters(self):
+        base = {"and": [{"in": {"demographic.race": ["white"]}}, AGE_RANGE]}
+        self.assertEqual(label(base), "Race: white + other filters")
+        self.assertEqual(label(AGE_RANGE), "Other filters")
+        self.assertNotIn("50", label(base))
+
+    def test_case_ids_alone_stay_selected_cases(self):
+        self.assertEqual(label(CASE_IDS), "Selected cases")
+
+    def test_label_of_unreadable_filter(self):
+        self.assertEqual(label({"or": []}), "Selected cases")
 
     def test_label_of_no_filter(self):
         self.assertEqual(label(None), "All cases")
