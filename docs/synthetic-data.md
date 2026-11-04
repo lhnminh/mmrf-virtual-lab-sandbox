@@ -55,7 +55,7 @@ are fitted to patient data.
 | Sex | XIST is expressed in female samples; RPS4Y1, DDX3Y, and other Y genes in male samples |
 | t(4;14) | **NSD2 up about 7-fold in every carrier**; FGFR3 strongly up in 72% of carriers; CCND2 and MAF up, CCND1 down; 350 secondary genes shift modestly |
 | t(14;16), t(14;20) | MAF or MAFB up, with CCND2, ITGB7 (and CX3CR1 for MAF); shared 200-gene secondary program |
-| MEK pathway | About 10% of samples, enriched for RAS/RAF variants, raise `MEK_UP.V1_UP` genes 2–3 log2 in module-led blocks and lower `MEK_UP.V1_DN`; another 8% do the reverse; see [MEK pathway program](#mek-pathway-program) |
+| MEK pathway | About 10% of samples, enriched for RAS/RAF variants, raise `MEK_UP.V1_UP` genes in module-led blocks (2–3 log2 in the leading module) and lower `MEK_UP.V1_DN`; another 8% do the reverse; see [MEK pathway program](#mek-pathway-program) |
 | Copy number | 1q gain raises 1q genes about 1.5-fold; del(17p) and del(1p32) lower genes in those regions; biallelic del(1p32) silences CDKN2C and FAF1 |
 
 Translocation and copy-number states come from each case's CGS markers, so a
@@ -101,9 +101,10 @@ coordinated patterns only where they overlap the patterns above.
 ### MEK pathway program
 
 About 10% of samples are MAPK-active (12% of cases with a KRAS, NRAS, or BRAF
-variant, 5% of the rest). These samples raise the `MEK_UP.V1_UP` panel genes by
-roughly 2–3 log2. One of three gene modules leads in each sample, so active
-samples form separate blocks in a clustered heatmap. They also lower
+variant, 5% of the rest). These samples raise `MEK_UP.V1_UP` panel genes in
+three modules. In each sample one module leads, rising roughly 2–3 log2; the
+other two rise at most half as much, some barely. Active samples therefore
+form separate blocks in a clustered heatmap rather than one uniform band. They also lower
 `MEK_UP.V1_DN` genes. Another 8% are MAPK-suppressed, the mirror image: they
 raise `MEK_UP.V1_DN` genes in module-led blocks and lower `MEK_UP.V1_UP`, so
 each set shows its own blocks. Other samples vary mildly together. Named genes
