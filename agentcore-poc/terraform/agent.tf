@@ -3,8 +3,8 @@ locals {
   log_retention_days = 7
   # An inference profile ID is a foundation model ID with a routing prefix.
   foundation_model_id = replace(var.model_id, "/^(us|eu|apac|global)\\./", "")
-  # Runtime and Gateway both act only for this account, in this region.
-  agentcore_trust = jsonencode({
+  # The trust the AWS Runtime docs give: this account, in this region.
+  runtime_trust = jsonencode({
     Version = "2012-10-17"
     Statement = [{
       Effect    = "Allow"
@@ -13,6 +13,19 @@ locals {
       Condition = {
         StringEquals = { "aws:SourceAccount" = var.sandbox_account_id }
         ArnLike      = { "aws:SourceArn" = "arn:aws:bedrock-agentcore:${var.region}:${var.sandbox_account_id}:*" }
+      }
+    }]
+  })
+  # Narrower, because Gateway ARNs start with the gateway's name.
+  gateway_trust = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect    = "Allow"
+      Action    = "sts:AssumeRole"
+      Principal = { Service = "bedrock-agentcore.amazonaws.com" }
+      Condition = {
+        StringEquals = { "aws:SourceAccount" = var.sandbox_account_id }
+        ArnLike      = { "aws:SourceArn" = "arn:aws:bedrock-agentcore:${var.region}:${var.sandbox_account_id}:gateway/${local.hyphen_name}-*" }
       }
     }]
   })
@@ -41,7 +54,7 @@ resource "aws_s3_object" "agent_code" {
 
 resource "aws_iam_role" "runtime" {
   name               = "${local.hyphen_name}-runtime"
-  assume_role_policy = local.agentcore_trust
+  assume_role_policy = local.runtime_trust
 }
 
 resource "aws_iam_role_policy" "runtime" {

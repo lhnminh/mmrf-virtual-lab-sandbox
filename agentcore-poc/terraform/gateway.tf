@@ -14,7 +14,7 @@ resource "aws_s3_object" "tool_schema" {
 
 resource "aws_iam_role" "gateway" {
   name               = "${local.hyphen_name}-gateway"
-  assume_role_policy = local.agentcore_trust
+  assume_role_policy = local.gateway_trust
 }
 
 resource "aws_iam_role_policy" "gateway" {
