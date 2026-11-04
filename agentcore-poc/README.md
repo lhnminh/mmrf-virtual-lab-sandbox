@@ -136,7 +136,7 @@ Run on 2026-11-03 through the Chrome DevTools MCP: local Chat, deployed agent. N
 | Check | What the page showed |
 | --- | --- |
 | "What's mutated in Black patients?" | Cohort bar 1,000 to 334. Answer and OncoMatrix agree: KRAS 148, NRAS 113, DIS3 98, BRAF 76, MYC 62, TP53 38 |
-| "Top 3 genes" | The same 3 genes and counts in the answer and matrix. The chart header counted 251 samples and the answer 287, because the summary counted all ranked genes. Fixed in code to count the genes shown, pending deploy |
+| "Top 3 genes" | The same 3 genes and counts in the answer and matrix. Before the fix, the chart header counted 251 samples and the answer 287, because the summary counted all ranked genes. It now counts the genes shown |
 | Lollipop for KRAS | Answer and chart agree: 148 samples, 14 variants, p.Q61H 38. The sample list wasn't opened |
 | Named and open-ended wording | "Show a Lollipop plot for KRAS" and "Where do KRAS mutations fall on the protein?" reach the same result |
 | Change the cohort, then ask | The answer opens with "Now using" and uses the new cohort. The request's `changedOutsideChat` is true once, then false |
@@ -153,7 +153,29 @@ Run on 2026-11-03 through the Chrome DevTools MCP: local Chat, deployed agent. N
 
 The standalone OncoMatrix page wasn't opened for comparison. Chat draws the same component with the same filter.
 
-**Pending deploy:** these fixes from the final review pass unit tests but haven't run on the deployed agent: the Top N sample count, transport failures showing as Failed, whole-word value matching ("I" means Stage I), `unsupported_field` for number-range fields such as age, and "Now using" only on the turn after a change. `journey-oncomatrix.sse` holds the earlier summary wording until it's re-recorded.
+**Final review fixes, confirmed on the deployed agent on 2026-11-04:** "Show the top 3 mutated genes" gives 767 samples in both the answer and the chart. "Only ISS stage I patients" resolves to Stage I without asking. "Only patients over 60" says Age at Index isn't supported yet. A health question after a manual change has no repeated "Now using".
+
+### Survival tool
+
+Run on 2026-11-04 through the Chrome DevTools MCP: local Chat, deployed agent (Runtime version 5). `show_survival` takes an optional `compareBy` (CGS risk, KRAS status, Sex or Race), reads `termdb/survival`, and opens the real chart through `CorrelationWrapper`.
+
+| Check | What the page showed |
+| --- | --- |
+| Both wordings of the Vision question | Same tool call, two labelled curves. High risk 334 cases, median 3.21. Standard risk 666 cases, median 8.92. Answer and at-risk table agree. Cohort bar unchanged |
+| P-value of 0 | The chart prints 0, and the answer says it's too small to calculate exactly. `survival.R` computes `1 - pchisq(...)`, which reaches exactly 0 for a large statistic |
+| Medians | Median Survival lines sit at about 3.23 and 8.94 by the axis scale, against 3.21 and 8.92 in the answer |
+| "Survival for high-risk patients" | The model first tried the name "CGS risk" and got `unknown_field`, then retried. Cohort 334, one curve, and the starting count matches the cohort bar |
+| CGS comparison in that cohort | `one_group`, with no P-value |
+| Undo | Cohort back to 1,000. Older charts keep their labels |
+| "Compare survival for TP53 mutated vs not" | `unsupported_comparison`, listing what's available |
+| "Compare survival across races" | Three curves, and all 3 pairs of P-values match the chart |
+| Empty cohort | `no_cases`, in a unit test only. Chat doesn't apply 0-case cohorts |
+| Unreadable filter field | HTTP 400, so a failed step and not all cases, checked by direct request |
+| Wrong login | "Correlation Plot · Survival" shows Failed. No numbers, cohort unchanged. Login restored |
+| More turns in one thread | Earlier charts stay. Chart requests in the server log didn't rise over turns that drew no chart |
+| Filter in the stream | None outside `STATE_SNAPSHOT` in `survival-cgs.sse`, `survival-one-group.sse` or `journey-oncomatrix.sse` |
+
+The first apply failed while uploading the agent zip, after deleting the old one, and left the Runtime pointing at a removed object. Re-planning and applying again finished it. The error text wasn't kept.
 
 **Local dev:** after refreshing AWS credentials, restart `next dev`. Until then Chat shows `HTTP 502`, and the log shows a `SyntaxError` for what is a 403 from AWS.
 `terraform destroy` hasn't been run.
