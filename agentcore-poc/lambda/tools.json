@@ -59,5 +59,21 @@
         }
       }
     }
+  },
+  {
+    "name": "show_lollipop",
+    "description": "Shows a Lollipop plot in ProteinPaint: where one gene's mutations fall along the protein, and how often each occurs in the researcher's selected cohort. Use it when the researcher asks for a lollipop plot, asks to use ProteinPaint, or asks where a gene's mutations fall on the protein, such as 'Show a lollipop plot for KRAS', 'Use ProteinPaint for KRAS' or 'Where do KRAS mutations fall on the protein?'. Give the gene as the researcher said it; aliases such as c-Myc resolve to MYC. The result reports samples, variants and the most frequent variants, or says the gene isn't in this dataset or has no mutations in the cohort. It never takes a cohort, and only reports numbers; the plot is drawn for the researcher.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "gene": {
+          "type": "string",
+          "description": "The gene, as the researcher said it, such as KRAS or c-Myc."
+        }
+      },
+      "required": [
+        "gene"
+      ]
+    }
   }
 ]
