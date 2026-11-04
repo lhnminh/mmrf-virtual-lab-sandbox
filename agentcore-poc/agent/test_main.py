@@ -70,6 +70,11 @@ class SystemPrompt(unittest.TestCase):
             with self.subTest(words=words):
                 self.assertIn(words, main.SYSTEM_PROMPT)
 
+    def test_separates_comparing_from_filtering(self):
+        for words in ("show_survival", "compareBy", "leave the cohort as it is", "never write p = 0"):
+            with self.subTest(words=words):
+                self.assertIn(words, main.SYSTEM_PROMPT)
+
     def test_numbers_keep_the_summary_unit(self):
         self.assertIn("with the unit the summary gives it", main.SYSTEM_PROMPT)
 
