@@ -18,11 +18,41 @@ test('client signs an MCP tool call and returns the envelope', async () => {
     return reply({ isError: false, content: [{ type: 'text', text: JSON.stringify(envelope) }] });
   } });
   assert.deepEqual(await callTool('kg_search_entities', { text: 'myeloma' }), envelope);
-  assert.equal(calls[0].init.headers['mcp-protocol-version'], '2025-06-18');
   const body = JSON.parse(calls[0].init.body);
   assert.equal(body.method, 'tools/call');
   assert.deepEqual(body.params, { name: 'kg-graph___kg_search_entities', arguments: { text: 'myeloma' } });
   assert.match(calls[0].init.headers.authorization, /^AWS4-HMAC-SHA256 Credential=AKID\/\d{8}\/us-west-2\/bedrock-agentcore\/aws4_request/);
+});
+
+test('client retries with the protocol version the gateway names, and remembers it', async () => {
+  const sent = [];
+  const refuse = (requested, supported) => new Response(JSON.stringify({ error: { code: -32600,
+    message: `Unsupported protocol version: ${requested}`, data: { requested, supported } } }), { status: 400 });
+  let accepted = '2025-06-18';
+  const callTool = createKnowledgeGraphClient({ url, credentials, fetchImpl: async (target, init) => {
+    const version = init.headers['mcp-protocol-version'];
+    sent.push(version);
+    if (version !== accepted) return refuse(version ?? '2025-03-26', [accepted]);
+    return reply({ isError: false, content: [{ type: 'text', text: JSON.stringify(envelope) }] });
+  } });
+  await callTool('kg_search_entities', { text: 'a' });
+  await callTool('kg_search_entities', { text: 'b' });
+  assert.deepEqual(sent, [undefined, '2025-06-18', '2025-06-18']);
+  accepted = '2025-03-26'; // The gateway can change version while the agent runs.
+  await callTool('kg_search_entities', { text: 'c' });
+  assert.deepEqual(sent.slice(3), ['2025-06-18', '2025-03-26']);
+});
+
+test('client gives up after one retry, and on a 400 that names no version', async () => {
+  let calls = 0;
+  const always = createKnowledgeGraphClient({ url, credentials, fetchImpl: async () => {
+    calls += 1;
+    return new Response(JSON.stringify({ error: { data: { supported: ['9'] } } }), { status: 400 });
+  } });
+  await assert.rejects(always('kg_get_evidence', {}), /HTTP 400/);
+  assert.equal(calls, 2);
+  const plain = createKnowledgeGraphClient({ url, credentials, fetchImpl: async () => new Response('nope', { status: 400 }) });
+  await assert.rejects(plain('kg_get_evidence', {}), /HTTP 400/);
 });
 
 test('client rejects non-gateway URLs and reports gateway and tool failures', async () => {
