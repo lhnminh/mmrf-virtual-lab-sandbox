@@ -351,16 +351,18 @@ in this document.
 
 ## Testing
 
-Playwright is the main way to check Chat in a browser, so changes can be tested without
-clicking through by hand.
+| Check | Covers | Runs when |
+| --- | --- | --- |
+| Unit tests (Jest and Python) | Tool logic, cohort sync rules, the dev route | Every change |
+| Browser checks with the Chrome DevTools MCP | Charts, tool steps, cohort panel and the acceptance checks above, against the deployed agent | After a deploy, or when a UI change needs seeing |
 
-| Tier | Agent | Covers | Runs when |
-| --- | --- | --- | --- |
-| Fast | Recorded AG-UI streams, served at the agent route | Tool UIs, cohort sync, Undo, failures and real chart rendering | Every frontend change |
-| Live | The deployed agent | The acceptance checks above that depend on the model and tools | After a deploy, on request |
+The Playwright suite was removed on 2026-11-03 at the user's request, because it slowed
+development. It can be restored from frontend commit `60da539`. Browser checks aren't
+scripted, so timing cases such as a dropdown change during a run are covered by unit tests
+rather than a real browser.
 
-Live tests compare the answer's numbers with the chart on the page, not with fixed values,
-because data differs between deployments.
+Compare the answer's numbers with the chart on the page, not with fixed values, because
+data differs between deployments.
 
 ## Frontend
 

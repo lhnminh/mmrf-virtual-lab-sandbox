@@ -535,44 +535,23 @@ Expected: PASS. Report unrelated existing failures, without fixing them.
 
 ---
 
-### Task 11: Live acceptance tests
+### Task 11: Live acceptance checks
 
-**Files:**
-- Create: `e2e/acceptance.live.spec.ts`, `e2e/support/numbers.ts`
-- Modify: `e2e/fixtures/*.sse` only if a real stream changed shape
+The Playwright suite was removed by user decision after Task 10. These run through the Chrome DevTools MCP, driven by the controller, against the deployed agent.
 
-**Interfaces:**
-- Produces: `npm run test:e2e:live`, which needs `AGENTCORE_RUNTIME_ARN`, `AWS_PROFILE` and `SANDBOX_ACCESS_FILE`.
+- [ ] **Step 1: Get the user's go-ahead, then redeploy**
 
-- [ ] **Step 1: Write the spec's acceptance table as `@live` tests**
+Refresh credentials, run `scripts/build_agent.sh`, re-plan, and apply. Re-record `none-in-cohort.sse` and `journey-oncomatrix.sse`.
 
-Each test compares what's on the page, not fixed numbers, because data differs between deployments.
+- [ ] **Step 2: Walk the spec's acceptance table in a browser**
 
-| Spec check | Assertion |
-| --- | --- |
-| "What's mutated in Black patients?" | Filter panel shows Race. The answer's case count equals the cohort bar's count. Its gene ranking equals a fresh `topMutatedGenes` through the forwarding script |
-| "Top 3 genes" | The answer names 3 genes, and the matrix shows the same 3 |
-| Lollipop for KRAS | The answer's sample and variant counts match the track request's `sampleTotalNumber` and `skewer` length |
-| Named and open-ended versions | All three Lollipop phrasings call `show_lollipop` |
-| Change the dropdown, then ask | The answer opens with "Now using" |
-| Undo | The cohort is restored, and older chart labels stay |
-| "Only women", then "white patients" | Sex is added, and Race replaced |
-| "Smokers" | `unknown_field`, and the cohort is unchanged |
-| "Hispanic" | Chat asks, and the cohort is unchanged |
-| A combination matching nobody | `would_be_empty`, and the cohort is unchanged |
-| BRCA1 | `no_data_for_gene`, listing the covered genes |
-| A covered gene with no mutation in a small cohort | `none_in_cohort`, stated as a result. Find the cohort through the API at test time |
-| A tool failure | Route a tool to fail by setting a wrong login, with the user's go-ahead: the step shows Failed, with no numbers from it |
-| Tool schemas | `tools/list` offers no cohort input |
+For each row, record what the page showed. Compare the answer's numbers with the chart and the cohort bar, not with fixed values. Include a second turn in one thread, since `MESSAGES_SNAPSHOT` replaces on-screen messages, and check no earlier message or chart is lost or refetched.
 
-Model wording varies, so assert on tool-step text, the filter panel and numbers, not whole sentences. Retry a run once only for a Runtime cold start.
+- [ ] **Step 3: Wrong-login check, with the user's go-ahead**
 
-- [ ] **Step 2: Run with the user's knowledge**
+Set a wrong login, confirm the step shows Failed with no numbers from it, restore the login, and force a new Lambda instance.
 
-This calls Bedrock and bills against the sandbox cap. Run: `$NX npx playwright test --project=live`.
-Expected: PASS. A failure shows whether it's the tool, prompt or chart. Fix each with a failing test first, in the owning task's test file, and redeploy with the user's go-ahead if the agent or Lambda changes.
-
-- [ ] **Step 3: Commit** `test(chat): add live acceptance tests`.
+- [ ] **Step 4: Record results in the README and commit** `docs(agentcore): record live acceptance checks`.
 
 ---
 
@@ -584,7 +563,7 @@ Expected: PASS. A failure shows whether it's the tool, prompt or chart. Fix each
 
 - [ ] **Step 1: Update the README**
 
-Cover the forwarding script, `SANDBOX_ACCESS_FILE`, the Playwright tiers, adding a Python tool, the live results, and that swapping Lambda code outside Terraform isn't detected by `terraform plan`.
+Cover the forwarding script, `SANDBOX_ACCESS_FILE`, browser checks with the Chrome DevTools MCP, adding a Python tool, the live results, and that swapping Lambda code outside Terraform isn't detected by `terraform plan`.
 
 - [ ] **Step 2: Update the diagram**
 
