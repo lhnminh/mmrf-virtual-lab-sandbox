@@ -12,6 +12,16 @@ Run the Virtual Lab with synthetic data using Docker Compose or AWS EKS.
 The stack includes the frontend, Guppy, Gen3 Analysis, ProteinPaint,
 Elasticsearch, and a shared synthetic identity.
 
+## ORION hackathon submission
+
+This repo is submitted together with
+[MMRF-KnowledgeGraph](https://github.com/lhnminh/mmrf-KnowledgeGraph)
+(Workstream 1: the myeloma knowledge graph in Amazon Neptune). The two are
+separate repos normally; a copy of MMRF-KnowledgeGraph is included here under
+[`MMRF-KnowledgeGraph/`](MMRF-KnowledgeGraph/) so judges can review both
+workstreams from a single repository. See that folder's own README for its
+setup and architecture.
+
 ## Run locally
 
 Requirements: Git, Python 3.9+, Bash, and Docker with Compose 2.17+.

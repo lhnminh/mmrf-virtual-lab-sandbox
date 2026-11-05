@@ -1,0 +1,32 @@
+[project]
+name = "mmrf-knowledgegraph"
+version = "0.1.0"
+description = "Evidence-linked Multiple Myeloma knowledge graph"
+readme = "README.md"
+authors = [
+    { name = "Minh Le", email = "lehnminh@gmail.com" }
+]
+requires-python = ">=3.12"
+dependencies = [
+    "neo4j>=5,<6",
+    "requests>=2,<3",
+    "pyyaml>=6,<7",
+    "boto3>=1.40,<2",
+]
+
+[dependency-groups]
+dev = ["pytest>=8,<10", "ruff>=0.11,<1"]
+
+[build-system]
+requires = ["uv_build>=0.13.6,<0.14.0"]
+build-backend = "uv_build"
+
+[tool.ruff]
+target-version = "py312"
+line-length = 110
+
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F", "I"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

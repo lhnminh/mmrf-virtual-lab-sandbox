@@ -1,0 +1,195 @@
+# MMRF ORION: Workstream 1 Knowledge Graph
+
+A myeloma knowledge graph in Amazon Neptune, exposed to agents as named tools through AgentCore Gateway. Each tool returns where its answer came from, the supporting subgraph, and any limitations. The design decisions are in [docs/adrs](docs/adrs), the current infrastructure diagram is in [docs/architecture.md](docs/architecture.md), and the rationale and alternatives for every major technology choice are in [docs/technology-choices.md](docs/technology-choices.md).
+
+No real patient data, customer credentials, or customer infrastructure is needed.
+
+The registered-trial subset links DisMech treatment publications through PubMed
+to eight ClinicalTrials.gov records (six MM, two JMML). See
+[clinical trial ingestion and visualization](docs/clinical-trials.md) for the
+source → S3 → Neptune workflow, validation and notebook queries.
+
+## Graph pipeline
+
+See the [ingestion pipeline diagram](docs/ingestion-pipeline.md) for the daily
+and manual source → S3 → Neptune paths, including clinical trials and validation.
+
+To explore the ETL export in local Neo4j Browser:
+
+```sh
+uv run python scripts/transform.py
+docker compose up -d neo4j
+docker compose --profile tools run --build --rm loader
+```
+
+Open http://localhost:7474 and connect to `bolt://localhost:7687` with user `neo4j` and password `password`. Run `MATCH p=(n:Entity)-[:RELATIONSHIP]->(m:Entity) RETURN p LIMIT 100;` and select the graph result view. For TP53, run `MATCH p=(g:Gene {id:'HGNC:11998'})-[:RELATIONSHIP*1..2]-(d:Disease {id:'MONDO:0009693'}) RETURN p LIMIT 20;`. The local CSV loader preserves the Neptune schema and provenance, and repeated imports merge the same IDs. It adds/updates the exported records without clearing other graph data. This local preview does not load AWS Neptune.
+
+The Compose loader connects inside the Docker network using `bolt://neo4j:7687`. Use it if host-side loopback access is blocked by Zscaler or another local proxy.
+
+```sh
+# Optional bounded public Monarch refresh (9 association calls, no full KG import):
+uv run python scripts/extract.py
+# Use the already downloaded Monarch file if present; preserve raw records and IDs:
+uv run python scripts/transform.py
+# Optional local-only DisMech YAML transformation after checking its data terms:
+uv run python scripts/transform.py --include-dismech
+uv run python scripts/validate.py
+```
+
+Outputs are `data/transformed/nodes.csv`, `relationships.csv`, and `graph.json`. Only the two CSV files go into the Neptune loader prefix. Original predicates, source records, all evidence entries, source identifiers, hashes, retrieval dates and review/confidence status are retained. Missing retrieval dates from older downloads are explicitly `unknown`; transformation time is recorded separately. DisMech-generated mechanism IDs are deterministic and namespaced because those source steps have no ontology IDs.
+
+Raw inputs and transformed outputs are ignored by Git. DisMech YAML data terms remain unconfirmed; a rendered page's license does not establish the YAML's redistribution terms. See [data terms and attribution](docs/data-terms.md).
+
+## Additional public source downloads
+
+- **Open Targets Platform** — CC0
+  (https://platform-docs.opentargets.org/licence). Pulled live via the
+  GraphQL API for `MONDO_0009693` only (same disease as our
+  `MONDO:0009693`). We keep the top 50 associated targets by overall
+  association score, plus any targets tied with #50 (53 as of release
+  26.09), sorted by score then Ensembl ID so the list is reproducible. We
+  also keep all drugs / clinical candidates for myeloma (with ChEMBL IDs,
+  max clinical stage and mechanism-of-action targets). The Open Targets
+  release (e.g. `26.09`) is recorded in the output.
+- **CIViC** — CC0 (https://civic.readthedocs.io/en/latest/about/faq.html).
+  Pulled live via the GraphQL API: all evidence items for Multiple Myeloma
+  (`DOID:9538`) with gene (HGNC symbol + Entrez ID), variant, evidence
+  type, level, significance, therapy and PMID. CIViC returns **accepted**
+  (curator-reviewed) and **submitted** (not yet reviewed) items; rejected
+  items are excluded. Each item keeps its `status` so the two can be told
+  apart. The `DOID:9538` → `MONDO:0009693` mapping comes from CIViC's own
+  cross-reference (`myDiseaseInfo.mondoId`), not from us.
+
+```sh
+uv run python ingestion/fetch_opentargets.py  # -> data/raw/opentargets_mm.json (+ .raw.json)
+uv run python ingestion/fetch_civic.py        # -> data/raw/civic_mm.json (+ .raw.N.json)
+uv run python scripts/transform.py
+uv run python scripts/validate.py
+docker compose --profile tools run --build --rm loader
+```
+
+Transformation automatically includes these snapshots when present, verifies
+the raw-response checksums, and exports them with the existing curated and
+Monarch records. `--curated-only` excludes all optional raw snapshots. The
+CSV loader merges the new IDs into the local Neo4j graph. See the additional
+queries in [Neo4j examples](docs/neo4j-queries.cypher) to explore them.
+
+Open Targets association scores are stored as `association_score`, separate
+from confidence. Drugs are linked using `opentargets:drug_or_clinical_candidate`,
+with the disease-specific `clinical_stage` and clinical-report URLs; this is
+not a claim of approval or efficacy. Mechanism nodes link drugs to targets.
+
+CIViC evidence nodes retain `ACCEPTED` versus `SUBMITTED` review status,
+evidence type/level/direction, significance, publication links, the complete
+molecular profile, its variants (including both fusion partners), and the
+mentioned therapies. Rejected items are excluded. Evidence remains attached
+to its molecular profile, including multi-variant and combination-therapy
+context; it is not projected as a general gene–disease or treatment claim.
+
+Every gene in the Open Targets and CIViC outputs carries `hgnc_symbol`, so
+the two sources can be joined on gene symbol. Both outputs also record
+`graph_disease_id: MONDO:0009693`; transformation uses this shared ID rather than each source's native disease ID
+(`MONDO_0009693` / `DOID:9538`). Each fetch saves the exact API reply next to
+the processed JSON (`*.raw*.json`) with its sha256, fetch timestamp (UTC),
+source version and license, so a snapshot can be verified later even though
+the APIs are live. Approved gene symbols join the two sources to existing
+genes; native Ensembl, Entrez and HGNC identifiers remain in aliases and
+original records. PMIDs and clinical-trial links are retained on the
+relationships alongside source version, retrieval time, license and hashes.
+
+## AWS
+
+The core runs in **us-west-2** from the Terraform stack in `terraform/`: a private VPC with no NAT or internet gateway, Neptune (`mmrf-kg-cluster`), AgentCore Gateway and its logs, and two Lambdas:
+
+| Lambda | Job | Neptune access |
+| --- | --- | --- |
+| `mmrf-kg-kg-graph` | Serves the `kg_*` tools through Gateway | Read only |
+| `mmrf-kg-ingest` | Reads the raw source files from S3 and writes them to Neptune | Read and write |
+
+Nothing outside the VPC connects to Neptune directly.
+
+For an interactive graph page and a token-protected JSON API, see
+[Graph API and explorer](docs/graph-api.md). It deploys independently from
+`terraform/graph-api`, invokes the existing read-only graph Lambda, and supports
+source, entity-type, relationship, and text filters with citation links.
+
+### Deploy
+
+Terraform deploys whatever zip it finds, so rebuild first. **Read the plan before applying, and stop if it says Neptune "must be replaced" or "forces replacement": that deletes the database and its data, with no snapshot.**
+
+```sh
+uv run python scripts/build_lambda.py
+terraform -chdir=terraform plan -out=tfplan
+terraform -chdir=terraform apply tfplan
+```
+
+### Load the core graph
+
+For a repeatable **public sources → versioned S3 snapshots → validated Neptune
+refresh** workflow, see [Source ingestion pipeline](docs/source-pipeline.md).
+EventBridge Scheduler invokes the fetch Lambda daily at **02:00 UTC**. Manual runs
+remain available with `uv run python scripts/run_source_pipeline.py`; schedule
+configuration and pause instructions are in the pipeline guide.
+
+`b1ca0b232b815a21b4ba95a62828c9979e9a49e7` is the commit for DisMech release `v0.1.46`, the pinned release in AD-001. The loader refuses files with no recorded source version, and it is safe to rerun because every write is a `MERGE`.
+
+```sh
+uv run python ingestion/fetch_monarch.py
+uv run python ingestion/fetch_dismech.py --revision b1ca0b232b815a21b4ba95a62828c9979e9a49e7
+
+BUCKET=$(terraform -chdir=terraform output -raw ingest_bucket)
+FUNCTION=$(terraform -chdir=terraform output -raw ingest_function)
+aws s3 cp data/raw/ "s3://$BUCKET/raw/" --recursive --exclude "*" \
+  --include "monarch_mm.json" --include "dismech_mm.yaml" --include "dismech_mm.yaml.provenance.json"
+aws lambda invoke --function-name "$FUNCTION" --cli-read-timeout 300 response.json
+cat response.json
+```
+
+The response reports the graph's node and relationship counts and the versions loaded. To load the same files into local Neo4j instead, run `uv run python ingestion/load_neo4j.py` (or `docker compose up -d neo4j` first if it isn't running).
+
+Neptune negotiates Bolt protocol 3, which allows only one open result per transaction; `load_neo4j.py` relies on the driver's own buffering between `tx.run()` calls and must not call `.consume()` on a result before the next one runs, or the driver raises `ResultConsumedError`.
+
+Open Targets and CIViC are not loaded into Neptune yet. The ETL above can export them, but they total about 12 MB, so when they are needed, revisit whether row-by-row writes are enough or the Neptune bulk loader is the better fit.
+
+### Test the Gateway
+
+`scripts/test_gateway.py` SigV4-signs the same MCP calls another team's agent would send, so it checks the Gateway itself rather than invoking the Lambda directly. Run it after every deploy or ingest and before a demo:
+
+```sh
+uv run python scripts/test_gateway.py
+```
+
+It prints PASS or FAIL for each check and exits non-zero if any fail. It checks the tool list, the graph's exact size, each read tool's answers and that a write query is rejected, because an empty graph otherwise answers normally. Every call is read-only. When the loaded data changes, update the expected counts at the top of the script and in [docs/mcp-tools.md](docs/mcp-tools.md).
+
+Needs credentials for an identity the Gateway's AWS_IAM authorizer accepts. It reads the Gateway URL from `terraform -chdir=terraform output -raw gateway_url` by default, or pass `--gateway-url` to override.
+
+The tools, their arguments and the response format are described in [docs/mcp-tools.md](docs/mcp-tools.md).
+
+### Alarms
+
+`terraform/alarms.tf` sends an SNS alert when a kg-graph tool fails to query the graph, or when either Lambda crashes or times out. To receive them, set `alert_email` and click the link in the confirmation email:
+
+```sh
+terraform -chdir=terraform plan -var="alert_email=you@example.com" -out=tfplan
+```
+
+These alarms don't cover an empty graph, because every call still succeeds. The smoke test above catches that.
+
+### Security scanning
+
+A [Checkov](https://www.checkov.io/) scan runs in GitHub Actions ([`.github/workflows/kg-terraform-security-scan.yml`](../.github/workflows/kg-terraform-security-scan.yml)) on every push to `main` and every pull request that touches `MMRF-KnowledgeGraph/terraform/**`, and can also be triggered manually from the Actions tab. It's report-only (`soft_fail: true`): findings are uploaded as SARIF to the repo's Security > Code scanning tab, but the check never blocks a merge. Findings that don't apply are suppressed inline with a `#checkov:skip=<rule_id>:<reason>` comment next to the resource.
+
+## Tests
+
+```sh
+uv run pytest
+uv run ruff check src scripts tests ingestion/load_neo4j.py terraform/lambda_build/handler.py
+```
+
+Tests cover provenance-preserving exports, the ingest loader, the tool logic and the smoke test's failure checks. They do not establish scientific validity or live AWS connectivity.
+
+## Teardown
+
+Neptune bills while idle. `scripts/teardown.sh` destroys the stack, including Neptune's data with no final snapshot. It needs the Terraform state.
+
+No clinical diagnosis or treatment recommendations.
